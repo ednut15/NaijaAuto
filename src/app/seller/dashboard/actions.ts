@@ -31,12 +31,12 @@ export async function saveSellerOnboardingAction(formData: FormData): Promise<vo
       cacNumber: readField(formData, "cacNumber"),
       address: readField(formData, "address"),
     });
-
-    revalidatePath("/seller/dashboard");
-    redirect("/seller/dashboard?saved=1");
   } catch (error) {
     const message =
       error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Unable to save profile.";
     redirect(`/seller/dashboard?error=${encodeURIComponent(message)}`);
   }
+
+  revalidatePath("/seller/dashboard");
+  redirect("/seller/dashboard?saved=1");
 }

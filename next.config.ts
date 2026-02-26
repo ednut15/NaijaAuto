@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const supabaseHost = process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).hostname : null;
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -7,6 +9,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "picsum.photos",
       },
+      ...(supabaseHost
+        ? [
+            {
+              protocol: "https",
+              hostname: supabaseHost,
+            },
+          ]
+        : []),
     ],
   },
 };

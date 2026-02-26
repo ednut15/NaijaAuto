@@ -92,13 +92,14 @@ export function SellerListingComposer() {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+    const form = event.currentTarget;
 
     if (photos.length < MIN_SUBMIT_PHOTOS) {
       setError(`Add at least ${MIN_SUBMIT_PHOTOS} photos before submit. ${photosRemaining} more needed.`);
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       title: String(formData.get("title") ?? ""),
       description: String(formData.get("description") ?? ""),
@@ -149,7 +150,7 @@ export function SellerListingComposer() {
 
       setSuccess("Listing submitted for moderation successfully.");
       setPhotos([]);
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to submit listing.");
