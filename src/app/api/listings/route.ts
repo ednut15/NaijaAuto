@@ -6,9 +6,9 @@ import { marketplaceService } from "@/server/services/container";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = requireUser(request, ["seller"]);
+    const user = await requireUser(request, ["seller"]);
     const payload = await parseJsonBody<unknown>(request);
-    const listing = marketplaceService.createListing(user, payload);
+    const listing = await marketplaceService.createListing(user, payload);
 
     return jsonCreated({ listing });
   } catch (error) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = Object.fromEntries(request.nextUrl.searchParams.entries());
-    const result = marketplaceService.searchListings(searchParams);
+    const result = await marketplaceService.searchListings(searchParams);
 
     return jsonOk(result);
   } catch (error) {

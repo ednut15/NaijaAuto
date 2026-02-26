@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { RequestUser } from "@/lib/auth";
 import { MarketplaceService } from "@/server/services/marketplace-service";
 import { InMemoryRepository } from "@/server/store/in-memory-repository";
-import type { RequestUser } from "@/lib/auth";
 
 class FakeTermii {
   async sendOtp() {
@@ -55,10 +55,10 @@ describe("Paystack webhook", () => {
       new FakeMailer() as never,
     );
 
-    repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
-    repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
 
-    const listing = service.createListing(seller, {
+    const listing = await service.createListing(seller, {
       title: "2021 Toyota Corolla LE",
       description: "Very clean vehicle from a dealer with complete papers and maintenance history.",
       priceNgn: 16000000,
@@ -72,15 +72,15 @@ describe("Paystack webhook", () => {
       vin: "JTDBR32E530056781",
       state: "Lagos",
       city: "Ikeja",
-      lat: 6.60,
+      lat: 6.6,
       lng: 3.35,
       photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/pay-${idx}/900/600`),
       contactPhone: "+2348091112233",
       contactWhatsapp: "+2348091112233",
     });
 
-    service.submitListing(seller, listing.id);
-    service.approveListing(moderator, listing.id, { reason: "Looks good" });
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Looks good" });
 
     const checkout = await service.createFeaturedCheckout(seller, {
       listingId: listing.id,

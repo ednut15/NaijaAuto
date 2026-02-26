@@ -11,11 +11,11 @@ export async function POST(
   },
 ) {
   try {
-    const moderator = requireUser(request, ["moderator", "super_admin"]);
+    const moderator = await requireUser(request, ["moderator", "super_admin"]);
     const { id } = await context.params;
     const payload = await parseJsonBody<unknown>(request);
 
-    const listing = marketplaceService.approveListing(moderator, id, payload);
+    const listing = await marketplaceService.approveListing(moderator, id, payload);
     return jsonOk({ listing });
   } catch (error) {
     return handleApiError(error);

@@ -4,6 +4,8 @@ import { ListingCard } from "@/components/listing-card";
 import { demoUsers } from "@/data/demo";
 import { marketplaceService } from "@/server/services/container";
 
+export const dynamic = "force-dynamic";
+
 const sandboxSeller = {
   id: demoUsers.sellerDealer.id,
   role: "seller" as const,
@@ -17,8 +19,8 @@ export const metadata = {
   description: "Manage drafts, approvals, and featured listing checkout.",
 };
 
-export default function SellerDashboardPage() {
-  const dashboard = marketplaceService.getSellerDashboard(sandboxSeller);
+export default async function SellerDashboardPage() {
+  const dashboard = await marketplaceService.getSellerDashboard(sandboxSeller);
 
   return (
     <div className="page-shell">

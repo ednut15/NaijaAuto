@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ListingCard } from "@/components/listing-card";
 import { marketplaceService } from "@/server/services/container";
 
+export const dynamic = "force-dynamic";
+
 interface CityCarsPageProps {
   params: Promise<{ state: string; city: string }>;
 }
@@ -31,7 +33,7 @@ export default async function CityCarsPage({ params }: CityCarsPageProps) {
   const readableState = decode(state);
   const readableCity = decode(city);
 
-  const result = marketplaceService.searchListings({
+  const result = await marketplaceService.searchListings({
     page: 1,
     pageSize: 30,
     state: readableState,

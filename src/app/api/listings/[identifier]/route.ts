@@ -16,7 +16,7 @@ export async function GET(
 ) {
   try {
     const { identifier } = await context.params;
-    const listing = marketplaceService.getPublicListing(identifier);
+    const listing = await marketplaceService.getPublicListing(identifier);
 
     return jsonOk({ listing });
   } catch (error) {
@@ -31,7 +31,7 @@ export async function PATCH(
   },
 ) {
   try {
-    const user = requireUser(request, ["seller"]);
+    const user = await requireUser(request, ["seller"]);
     const { identifier } = await context.params;
 
     if (!isUuid(identifier)) {
@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     const payload = await parseJsonBody<unknown>(request);
-    const listing = marketplaceService.updateListing(user, identifier, payload);
+    const listing = await marketplaceService.updateListing(user, identifier, payload);
 
     return jsonOk({ listing });
   } catch (error) {

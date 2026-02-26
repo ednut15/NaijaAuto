@@ -2,13 +2,15 @@ import Link from "next/link";
 
 import { marketplaceService } from "@/server/services/container";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Moderation Queue",
   description: "Review and process pending listing submissions within SLA.",
 };
 
-export default function ModeratorQueuePage() {
-  const queue = marketplaceService.getModerationQueue();
+export default async function ModeratorQueuePage() {
+  const queue = await marketplaceService.getModerationQueue();
 
   return (
     <div className="page-shell">

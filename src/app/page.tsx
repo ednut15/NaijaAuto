@@ -5,10 +5,12 @@ import { compactNumber } from "@/lib/format";
 import { marketplaceService } from "@/server/services/container";
 import { getRepository } from "@/server/store";
 
-export default function HomePage() {
-  const listingResult = marketplaceService.searchListings({ page: 1, pageSize: 6 });
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const listingResult = await marketplaceService.searchListings({ page: 1, pageSize: 6 });
   const repository = getRepository();
-  const locations = repository.listLocations();
+  const locations = await repository.listLocations();
 
   return (
     <div className="page-shell">

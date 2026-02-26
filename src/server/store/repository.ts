@@ -26,9 +26,9 @@ export interface DuplicateImageSignal {
 }
 
 export interface Repository {
-  seedLocations(locations: Location[]): void;
-  listLocations(): Location[];
-  getLocation(state: string, city: string): Location | null;
+  seedLocations(locations: Location[]): Promise<void>;
+  listLocations(): Promise<Location[]>;
+  getLocation(state: string, city: string): Promise<Location | null>;
 
   upsertUser(input: {
     id: string;
@@ -37,9 +37,9 @@ export interface Repository {
     phoneVerified?: boolean;
     email?: string;
     phone?: string;
-  }): AppUser;
-  getUserById(id: string): AppUser | null;
-  markPhoneVerified(userId: string, phone: string): AppUser;
+  }): Promise<AppUser>;
+  getUserById(id: string): Promise<AppUser | null>;
+  markPhoneVerified(userId: string, phone: string): Promise<AppUser>;
 
   createOtp(input: {
     userId: string;
@@ -47,48 +47,56 @@ export interface Repository {
     codeHash: string;
     expiresAt: string;
     maxAttempts: number;
-  }): OtpVerification;
-  getLatestOtp(userId: string, phone: string): OtpVerification | null;
-  incrementOtpAttempts(otpId: string): OtpVerification | null;
-  markOtpVerified(otpId: string): OtpVerification | null;
+  }): Promise<OtpVerification>;
+  getLatestOtp(userId: string, phone: string): Promise<OtpVerification | null>;
+  incrementOtpAttempts(otpId: string): Promise<OtpVerification | null>;
+  markOtpVerified(otpId: string): Promise<OtpVerification | null>;
 
-  createListing(input: Omit<Listing, "createdAt" | "updatedAt">): Listing;
-  updateListing(id: string, patch: Partial<Listing>): Listing | null;
-  getListingById(id: string): Listing | null;
-  getListingBySlug(slug: string): Listing | null;
-  listSellerListings(sellerId: string): Listing[];
-  searchListings(input: SearchListingsInput): SearchResult;
-  allListings(): Listing[];
+  createListing(input: Omit<Listing, "createdAt" | "updatedAt">): Promise<Listing>;
+  updateListing(id: string, patch: Partial<Listing>): Promise<Listing | null>;
+  getListingById(id: string): Promise<Listing | null>;
+  getListingBySlug(slug: string): Promise<Listing | null>;
+  listSellerListings(sellerId: string): Promise<Listing[]>;
+  searchListings(input: SearchListingsInput): Promise<SearchResult>;
+  allListings(): Promise<Listing[]>;
 
-  hasDuplicateVin(vin: string, excludeListingId?: string): boolean;
-  detectDuplicateImageHashes(imageHashes: string[], excludeListingId?: string): DuplicateImageSignal;
+  hasDuplicateVin(vin: string, excludeListingId?: string): Promise<boolean>;
+  detectDuplicateImageHashes(
+    imageHashes: string[],
+    excludeListingId?: string,
+  ): Promise<DuplicateImageSignal>;
 
-  addModerationReview(input: Omit<ModerationReview, "createdAt">): ModerationReview;
-  getModerationQueue(): Listing[];
+  addModerationReview(input: Omit<ModerationReview, "createdAt">): Promise<ModerationReview>;
+  getModerationQueue(): Promise<Listing[]>;
 
-  addFavorite(input: Favorite): Favorite;
-  removeFavorite(userId: string, listingId: string): boolean;
-  listFavoritesByUser(userId: string): Favorite[];
+  addFavorite(input: Favorite): Promise<Favorite>;
+  removeFavorite(userId: string, listingId: string): Promise<boolean>;
+  listFavoritesByUser(userId: string): Promise<Favorite[]>;
 
-  addContactEvent(input: Omit<ListingContactEvent, "createdAt">): ListingContactEvent;
-  listContactEventsByListingSince(listingId: string, sinceIso: string): ListingContactEvent[];
+  addContactEvent(input: Omit<ListingContactEvent, "createdAt">): Promise<ListingContactEvent>;
+  listContactEventsByListingSince(
+    listingId: string,
+    sinceIso: string,
+  ): Promise<ListingContactEvent[]>;
 
-  listFeaturedPackages(): FeaturedPackage[];
-  getFeaturedPackageByCode(code: string): FeaturedPackage | null;
+  listFeaturedPackages(): Promise<FeaturedPackage[]>;
+  getFeaturedPackageByCode(code: string): Promise<FeaturedPackage | null>;
 
-  createPaymentTransaction(input: Omit<PaymentTransaction, "createdAt" | "paidAt">): PaymentTransaction;
-  getPaymentByReference(reference: string): PaymentTransaction | null;
-  getPaymentByWebhookEventId(webhookEventId: string): PaymentTransaction | null;
+  createPaymentTransaction(
+    input: Omit<PaymentTransaction, "createdAt" | "paidAt">,
+  ): Promise<PaymentTransaction>;
+  getPaymentByReference(reference: string): Promise<PaymentTransaction | null>;
+  getPaymentByWebhookEventId(webhookEventId: string): Promise<PaymentTransaction | null>;
   markPaymentPaid(input: {
     reference: string;
     webhookEventId: string;
     providerTransactionId?: string;
     paidAt: string;
-  }): PaymentTransaction | null;
+  }): Promise<PaymentTransaction | null>;
 
-  addNotification(input: Omit<Notification, "createdAt" | "readAt">): Notification;
-  listNotificationsByUser(userId: string): Notification[];
+  addNotification(input: Omit<Notification, "createdAt" | "readAt">): Promise<Notification>;
+  listNotificationsByUser(userId: string): Promise<Notification[]>;
 
-  addAuditLog(input: Omit<AuditLog, "createdAt">): AuditLog;
-  listAuditLogs(): AuditLog[];
+  addAuditLog(input: Omit<AuditLog, "createdAt">): Promise<AuditLog>;
+  listAuditLogs(): Promise<AuditLog[]>;
 }

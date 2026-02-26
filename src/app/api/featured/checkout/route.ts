@@ -6,7 +6,7 @@ import { marketplaceService } from "@/server/services/container";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = requireUser(request, ["seller"]);
+    const user = await requireUser(request, ["seller"]);
     const payload = await parseJsonBody<unknown>(request);
 
     const result = await marketplaceService.createFeaturedCheckout(user, payload);

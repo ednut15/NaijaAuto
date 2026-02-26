@@ -1,43 +1,78 @@
 import { demoListings, demoUsers } from "@/data/demo";
 import { nigeriaLaunchLocations } from "@/data/locations";
+import { env } from "@/lib/env";
+import { hasSupabaseAdminConfig } from "@/server/supabase/client";
 import { InMemoryRepository } from "@/server/store/in-memory-repository";
+import type { Repository } from "@/server/store/repository";
+import { SupabaseRepository } from "@/server/store/supabase-repository";
 
 declare global {
-  var __naijaauto_repository__: InMemoryRepository | undefined;
+  var __naijaauto_repository__: Repository | undefined;
   var __naijaauto_seeded__: boolean | undefined;
 }
 
 const globalStore = globalThis as typeof globalThis & {
-  __naijaauto_repository__?: InMemoryRepository;
+  __naijaauto_repository__?: Repository;
   __naijaauto_seeded__?: boolean;
 };
 
-const repository = globalStore.__naijaauto_repository__ ?? new InMemoryRepository();
+function getRepositoryMode(): "supabase" | "memory" {
+  if (hasSupabaseAdminConfig()) {
+    return "supabase";
+  }
 
-function seedDemoData(repo: InMemoryRepository): void {
-  if (repo.allListings().length > 0) {
+  return "memory";
+}
+
+function createRepository(): Repository {
+  const mode = getRepositoryMode();
+
+  if (mode === "supabase") {
+    return new SupabaseRepository();
+  }
+
+  return new InMemoryRepository();
+}
+
+async function seedRepository(repo: Repository): Promise<void> {
+  if (globalStore.__naijaauto_seeded__) {
     return;
   }
 
-  repo.seedLocations(nigeriaLaunchLocations);
+  // Runtime seeding is only for local in-memory mode.
+  // Supabase mode relies on SQL migrations/seed files, and should not run DB writes during module import.
+  if (!hasSupabaseAdminConfig()) {
+    await repo.seedLocations(nigeriaLaunchLocations);
 
-  repo.upsertUser(demoUsers.buyer);
-  repo.upsertUser(demoUsers.sellerDealer);
-  repo.upsertUser(demoUsers.sellerPrivate);
-  repo.upsertUser(demoUsers.moderator);
+    await repo.upsertUser(demoUsers.buyer);
+    await repo.upsertUser(demoUsers.sellerDealer);
+    await repo.upsertUser(demoUsers.sellerPrivate);
+    await repo.upsertUser(demoUsers.moderator);
 
-  for (const listing of demoListings) {
-    repo.createListing(listing);
+    for (const listing of demoListings) {
+      const existing = await repo.getListingById(listing.id);
+      if (!existing) {
+        await repo.createListing(listing);
+      }
+    }
   }
-}
 
-if (!globalStore.__naijaauto_seeded__) {
-  seedDemoData(repository);
   globalStore.__naijaauto_seeded__ = true;
 }
 
+const repository = globalStore.__naijaauto_repository__ ?? createRepository();
 globalStore.__naijaauto_repository__ = repository;
 
-export function getRepository(): InMemoryRepository {
+await seedRepository(repository);
+
+export function getRepository(): Repository {
   return repository;
+}
+
+export function getRepositoryRuntimeMode(): "supabase" | "memory" {
+  return hasSupabaseAdminConfig() ? "supabase" : "memory";
+}
+
+export function getSupabaseProjectRef(): string | undefined {
+  return env.SUPABASE_PROJECT_REF;
 }

@@ -11,10 +11,10 @@ export async function POST(
   },
 ) {
   try {
-    const user = requireUser(request, ["buyer", "seller", "moderator", "super_admin"]);
+    const user = await requireUser(request, ["buyer", "seller", "moderator", "super_admin"]);
     const { listingId } = await context.params;
 
-    const result = marketplaceService.addFavorite(user, listingId);
+    const result = await marketplaceService.addFavorite(user, listingId);
     return jsonOk(result);
   } catch (error) {
     return handleApiError(error);
@@ -28,10 +28,10 @@ export async function DELETE(
   },
 ) {
   try {
-    const user = requireUser(request, ["buyer", "seller", "moderator", "super_admin"]);
+    const user = await requireUser(request, ["buyer", "seller", "moderator", "super_admin"]);
     const { listingId } = await context.params;
 
-    const result = marketplaceService.removeFavorite(user, listingId);
+    const result = await marketplaceService.removeFavorite(user, listingId);
     return jsonOk(result);
   } catch (error) {
     return handleApiError(error);
