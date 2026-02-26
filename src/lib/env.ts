@@ -17,6 +17,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ACCESS_TOKEN: z.string().optional(),
   SUPABASE_PROJECT_REF: z.string().optional(),
+  SUPABASE_STORAGE_BUCKET_LISTINGS: z.string().default("listing-photos"),
 });
 
 export const env = envSchema.parse({
@@ -36,6 +37,7 @@ export const env = envSchema.parse({
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN,
   SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
+  SUPABASE_STORAGE_BUCKET_LISTINGS: process.env.SUPABASE_STORAGE_BUCKET_LISTINGS,
 });
 
 export const isProduction = env.NODE_ENV === "production";

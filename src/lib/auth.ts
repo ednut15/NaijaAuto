@@ -24,6 +24,16 @@ interface HeaderReader {
   get(name: string): string | null;
 }
 
+interface SupabaseCookie {
+  name: string;
+  value: string;
+}
+
+interface SupabaseCookieAdapter {
+  getAll(): SupabaseCookie[];
+  setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>): void;
+}
+
 function parseUserFromHeaderValues(reader: HeaderReader): RequestUser | null {
   const id = reader.get("x-user-id");
   const roleHeader = reader.get("x-user-role");
@@ -107,31 +117,15 @@ async function parseUserFromAuthorizationHeader(authHeader: string | null): Prom
   return toRequestUserFromSupabaseUser(data.user);
 }
 
-async function parseUserFromSupabaseCookieSession(): Promise<RequestUser | null> {
+async function parseUserFromSupabaseCookieAdapter(
+  cookieAdapter: SupabaseCookieAdapter,
+): Promise<RequestUser | null> {
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
     return null;
   }
 
-  const cookieStore = await cookies();
-
   const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll().map((cookie) => ({
-          name: cookie.name,
-          value: cookie.value,
-        }));
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          try {
-            cookieStore.set(cookie.name, cookie.value, cookie.options);
-          } catch {
-            // No-op in read-only contexts.
-          }
-        }
-      },
-    },
+    cookies: cookieAdapter,
   });
 
   const { data, error } = await supabase.auth.getUser();
@@ -142,10 +136,51 @@ async function parseUserFromSupabaseCookieSession(): Promise<RequestUser | null>
   return toRequestUserFromSupabaseUser(data.user);
 }
 
+async function parseUserFromSupabaseCookieSession(): Promise<RequestUser | null> {
+  const cookieStore = await cookies();
+
+  return parseUserFromSupabaseCookieAdapter({
+    getAll() {
+      return cookieStore.getAll().map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+      }));
+    },
+    setAll(cookiesToSet) {
+      for (const cookie of cookiesToSet) {
+        try {
+          cookieStore.set(cookie.name, cookie.value, cookie.options);
+        } catch {
+          // No-op in read-only contexts.
+        }
+      }
+    },
+  });
+}
+
+async function parseUserFromSupabaseRequestSession(request: NextRequest): Promise<RequestUser | null> {
+  return parseUserFromSupabaseCookieAdapter({
+    getAll() {
+      return request.cookies.getAll().map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+      }));
+    },
+    setAll() {
+      // Route handlers do not need to mutate cookies for user lookup.
+    },
+  });
+}
+
 export async function getRequestUser(request: NextRequest): Promise<RequestUser | null> {
   const tokenUser = await parseUserFromAuthorizationHeader(request.headers.get("authorization"));
   if (tokenUser) {
     return tokenUser;
+  }
+
+  const sessionUser = await parseUserFromSupabaseRequestSession(request);
+  if (sessionUser) {
+    return sessionUser;
   }
 
   return parseUserFromHeaderValues(request.headers);
@@ -160,7 +195,7 @@ export async function requireUser(
   if (!user) {
     throw new ApiError(
       401,
-      "Authentication required. Send a Supabase bearer token or x-user-id/x-user-role headers for local sandbox mode.",
+      "Authentication required. Use Supabase session/bearer auth or x-user-id/x-user-role headers for local sandbox mode.",
     );
   }
 

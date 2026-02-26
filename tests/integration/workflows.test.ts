@@ -67,6 +67,13 @@ describe("MVP workflows", () => {
     const { repo, service } = buildService();
     await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
     await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Motors",
+      state: "Lagos",
+      city: "Ikeja",
+      businessName: "Adewale Motors Ltd",
+    });
 
     const listing = await service.createListing(seller, {
       title: "2021 Toyota Corolla LE",
@@ -105,6 +112,13 @@ describe("MVP workflows", () => {
     await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
     await repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: true });
     await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Autos",
+      state: "FCT",
+      city: "Abuja",
+      businessName: "Adewale Autos Ltd",
+    });
 
     const listing = await service.createListing(seller, {
       title: "2019 Honda Accord",
@@ -147,6 +161,13 @@ describe("MVP workflows", () => {
       email: seller.email,
     });
     await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Trucks",
+      state: "Rivers",
+      city: "Port Harcourt",
+      businessName: "Adewale Trucks Ltd",
+    });
 
     const listing = await service.createListing(seller, {
       title: "2022 Ford Ranger",

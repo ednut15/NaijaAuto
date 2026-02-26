@@ -57,6 +57,13 @@ describe("Paystack webhook", () => {
 
     await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
     await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Dealer Test",
+      state: "Lagos",
+      city: "Ikeja",
+      businessName: "Dealer Test Ltd",
+    });
 
     const listing = await service.createListing(seller, {
       title: "2021 Toyota Corolla LE",
