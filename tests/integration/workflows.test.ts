@@ -282,4 +282,52 @@ describe("MVP workflows", () => {
     expect(saved.sellerProfile?.fullName).toBe("Adewale Motors");
     expect(saved.dealerProfile?.businessName).toBe("Adewale Motors Ltd");
   });
+
+  it("supports rejected listing edit and resubmit flow", async () => {
+    const { repo, service } = buildService();
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Motors",
+      state: "Lagos",
+      city: "Ikeja",
+      businessName: "Adewale Motors Ltd",
+    });
+
+    const listing = await service.createListing(seller, {
+      title: "2018 Toyota Camry",
+      description: "Well maintained sedan with service history and all documents available.",
+      priceNgn: 13000000,
+      year: 2018,
+      make: "Toyota",
+      model: "Camry",
+      bodyType: "car",
+      mileageKm: 76000,
+      transmission: "automatic",
+      fuelType: "petrol",
+      vin: "4T1B11HK7JU654321",
+      state: "Lagos",
+      city: "Ikeja",
+      lat: 6.6018,
+      lng: 3.3515,
+      photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/rej-${idx}/900/600`),
+      contactPhone: "+2348001112233",
+      contactWhatsapp: "+2348001112233",
+    });
+
+    await service.submitListing(seller, listing.id);
+    const rejected = await service.rejectListing(moderator, listing.id, { reason: "Update details and photos." });
+    expect(rejected.status).toBe("rejected");
+
+    const updated = await service.updateListing(seller, listing.id, {
+      title: "2018 Toyota Camry XLE",
+      photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/rej2-${idx}/900/600`),
+    });
+
+    expect(updated.status).toBe("draft");
+
+    const resubmitted = await service.submitListing(seller, listing.id);
+    expect(resubmitted.status).toBe("pending_review");
+  });
 });
