@@ -3,6 +3,7 @@ import type {
   AuditLog,
   DealerProfile,
   Favorite,
+  FeaturedPackageAdmin,
   FeaturedPackage,
   Listing,
   ListingContactEvent,
@@ -25,6 +26,13 @@ export interface SearchResult {
 export interface DuplicateImageSignal {
   overlapCount: number;
   existingListingIds: string[];
+}
+
+export interface FeaturedPackageUpdateInput {
+  name?: string;
+  durationDays?: number;
+  amountNgn?: number;
+  isActive?: boolean;
 }
 
 export interface Repository {
@@ -101,6 +109,11 @@ export interface Repository {
 
   listFeaturedPackages(): Promise<FeaturedPackage[]>;
   getFeaturedPackageByCode(code: string): Promise<FeaturedPackage | null>;
+  listFeaturedPackagesForAdmin(): Promise<FeaturedPackageAdmin[]>;
+  updateFeaturedPackageByCode(
+    code: string,
+    patch: FeaturedPackageUpdateInput,
+  ): Promise<FeaturedPackageAdmin | null>;
 
   createPaymentTransaction(
     input: Omit<PaymentTransaction, "createdAt" | "paidAt">,

@@ -62,6 +62,13 @@ const moderator: RequestUser = {
   phoneVerified: true,
 };
 
+const superAdmin: RequestUser = {
+  id: "00000000-0000-0000-0000-000000000191",
+  role: "super_admin",
+  phoneVerified: true,
+  email: "admin@test.local",
+};
+
 describe("MVP workflows", () => {
   it("supports create -> submit -> approve -> searchable lifecycle", async () => {
     const { repo, service } = buildService();
@@ -224,6 +231,134 @@ describe("MVP workflows", () => {
     const refreshed = await repo.getListingById(listing.id);
     expect(refreshed?.isFeatured).toBe(true);
     expect(refreshed?.featuredUntil).toBeTruthy();
+  });
+
+  it("allows super admin package updates to change featured checkout amount", async () => {
+    const { repo, service } = buildService();
+    await repo.upsertUser({
+      id: seller.id,
+      role: seller.role,
+      sellerType: "dealer",
+      phoneVerified: true,
+      email: seller.email,
+    });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({
+      id: superAdmin.id,
+      role: superAdmin.role,
+      phoneVerified: true,
+      email: superAdmin.email,
+    });
+
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Premium Autos",
+      state: "Lagos",
+      city: "Lekki",
+      businessName: "Adewale Premium Autos Ltd",
+    });
+
+    const listing = await service.createListing(seller, {
+      title: "2023 Toyota Prado",
+      description: "Premium SUV in excellent condition with complete dealership inspection records.",
+      priceNgn: 78000000,
+      year: 2023,
+      make: "Toyota",
+      model: "Prado",
+      bodyType: "suv",
+      mileageKm: 18000,
+      transmission: "automatic",
+      fuelType: "petrol",
+      vin: "JTEBR3FJ70K123456",
+      state: "Lagos",
+      city: "Lekki",
+      lat: 6.4698,
+      lng: 3.5852,
+      photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/pkg-${idx}/900/600`),
+      contactPhone: "+2348123456700",
+      contactWhatsapp: "+2348123456700",
+    });
+
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Approved for checkout package update test." });
+
+    const updatedPackage = await service.updateFeaturedPackageForAdmin(superAdmin, "feature_7_days", {
+      amountNgn: 30500,
+      durationDays: 10,
+      name: "Featured - 10 Days",
+      isActive: true,
+    });
+    expect(updatedPackage.amountNgn).toBe(30500);
+    expect(updatedPackage.durationDays).toBe(10);
+
+    const checkout = await service.createFeaturedCheckout(seller, {
+      listingId: listing.id,
+      packageCode: "feature_7_days",
+    });
+
+    expect(checkout.amountNgn).toBe(30500);
+    const transaction = await repo.getPaymentByReference(checkout.reference);
+    expect(transaction?.amountNgn).toBe(30500);
+  });
+
+  it("blocks featured checkout when a package is deactivated by super admin", async () => {
+    const { repo, service } = buildService();
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({
+      id: superAdmin.id,
+      role: superAdmin.role,
+      phoneVerified: true,
+      email: superAdmin.email,
+    });
+
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Budget Cars",
+      state: "FCT",
+      city: "Abuja",
+      businessName: "Adewale Budget Cars Ltd",
+    });
+
+    const listing = await service.createListing(seller, {
+      title: "2017 Nissan Altima",
+      description: "Affordable sedan with complete papers, good maintenance history and clean interior.",
+      priceNgn: 9800000,
+      year: 2017,
+      make: "Nissan",
+      model: "Altima",
+      bodyType: "car",
+      mileageKm: 89000,
+      transmission: "automatic",
+      fuelType: "petrol",
+      vin: "1N4AL3AP7HC123456",
+      state: "FCT",
+      city: "Abuja",
+      lat: 9.0765,
+      lng: 7.3986,
+      photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/pkg-off-${idx}/900/600`),
+      contactPhone: "+2348090011223",
+      contactWhatsapp: "+2348090011223",
+    });
+
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Approved for package deactivation test." });
+
+    const deactivatedPackage = await service.updateFeaturedPackageForAdmin(
+      superAdmin,
+      "feature_14_days",
+      {
+        isActive: false,
+      },
+    );
+    expect(deactivatedPackage.isActive).toBe(false);
+
+    await expect(
+      service.createFeaturedCheckout(seller, {
+        listingId: listing.id,
+        packageCode: "feature_14_days",
+      }),
+    ).rejects.toThrow("Featured package not found.");
   });
 
   it("supports OTP send/verify and enforces max retries", async () => {

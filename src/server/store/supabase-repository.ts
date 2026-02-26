@@ -3,6 +3,7 @@ import type {
   AuditLog,
   DealerProfile,
   Favorite,
+  FeaturedPackageAdmin,
   FeaturedPackage,
   Listing,
   ListingContactEvent,
@@ -19,7 +20,12 @@ import type {
 
 import { sha256 } from "@/lib/security";
 import { getSupabaseAdminClient } from "@/server/supabase/client";
-import type { DuplicateImageSignal, Repository, SearchResult } from "@/server/store/repository";
+import type {
+  DuplicateImageSignal,
+  FeaturedPackageUpdateInput,
+  Repository,
+  SearchResult,
+} from "@/server/store/repository";
 
 function normalize(value: string): string {
   return value.trim().toLowerCase();
@@ -217,6 +223,34 @@ function ensureData<T>(data: T | null, context: string): T {
   }
 
   return data;
+}
+
+interface FeaturedPackageRow {
+  id: string;
+  code: string;
+  name: string;
+  duration_days: number;
+  amount_ngn: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+function mapFeaturedPackage(row: FeaturedPackageRow): FeaturedPackage {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    durationDays: row.duration_days,
+    amountNgn: row.amount_ngn,
+    createdAt: row.created_at,
+  };
+}
+
+function mapFeaturedPackageForAdmin(row: FeaturedPackageRow): FeaturedPackageAdmin {
+  return {
+    ...mapFeaturedPackage(row),
+    isActive: row.is_active,
+  };
 }
 
 export class SupabaseRepository implements Repository {
@@ -940,26 +974,19 @@ export class SupabaseRepository implements Repository {
   async listFeaturedPackages(): Promise<FeaturedPackage[]> {
     const { data, error } = await this.client
       .from("featured_packages")
-      .select("id, code, name, duration_days, amount_ngn, created_at")
+      .select("id, code, name, duration_days, amount_ngn, is_active, created_at")
       .eq("is_active", true)
       .order("amount_ngn", { ascending: true });
 
     ensureNoError(error, "Failed to list featured packages");
 
-    return (data ?? []).map((pkg) => ({
-      id: pkg.id,
-      code: pkg.code,
-      name: pkg.name,
-      durationDays: pkg.duration_days,
-      amountNgn: pkg.amount_ngn,
-      createdAt: pkg.created_at,
-    }));
+    return ((data as FeaturedPackageRow[] | null) ?? []).map((pkg) => mapFeaturedPackage(pkg));
   }
 
   async getFeaturedPackageByCode(code: string): Promise<FeaturedPackage | null> {
     const { data, error } = await this.client
       .from("featured_packages")
-      .select("id, code, name, duration_days, amount_ngn, created_at")
+      .select("id, code, name, duration_days, amount_ngn, is_active, created_at")
       .eq("code", code)
       .eq("is_active", true)
       .maybeSingle();
@@ -970,14 +997,54 @@ export class SupabaseRepository implements Repository {
       return null;
     }
 
-    return {
-      id: data.id,
-      code: data.code,
-      name: data.name,
-      durationDays: data.duration_days,
-      amountNgn: data.amount_ngn,
-      createdAt: data.created_at,
-    };
+    return mapFeaturedPackage(data as FeaturedPackageRow);
+  }
+
+  async listFeaturedPackagesForAdmin(): Promise<FeaturedPackageAdmin[]> {
+    const { data, error } = await this.client
+      .from("featured_packages")
+      .select("id, code, name, duration_days, amount_ngn, is_active, created_at")
+      .order("amount_ngn", { ascending: true });
+
+    ensureNoError(error, "Failed to list featured packages for admin");
+
+    return ((data as FeaturedPackageRow[] | null) ?? []).map((pkg) =>
+      mapFeaturedPackageForAdmin(pkg),
+    );
+  }
+
+  async updateFeaturedPackageByCode(
+    code: string,
+    patch: FeaturedPackageUpdateInput,
+  ): Promise<FeaturedPackageAdmin | null> {
+    const updatePayload: Record<string, unknown> = {};
+    if (patch.name !== undefined) {
+      updatePayload.name = patch.name;
+    }
+    if (patch.durationDays !== undefined) {
+      updatePayload.duration_days = patch.durationDays;
+    }
+    if (patch.amountNgn !== undefined) {
+      updatePayload.amount_ngn = patch.amountNgn;
+    }
+    if (patch.isActive !== undefined) {
+      updatePayload.is_active = patch.isActive;
+    }
+
+    const { data, error } = await this.client
+      .from("featured_packages")
+      .update(updatePayload)
+      .eq("code", code)
+      .select("id, code, name, duration_days, amount_ngn, is_active, created_at")
+      .maybeSingle();
+
+    ensureNoError(error, "Failed to update featured package");
+
+    if (!data) {
+      return null;
+    }
+
+    return mapFeaturedPackageForAdmin(data as FeaturedPackageRow);
   }
 
   async createPaymentTransaction(
