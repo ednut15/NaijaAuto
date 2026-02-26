@@ -147,8 +147,18 @@ describe("MVP workflows", () => {
     const added = await service.addFavorite(buyer, listing.id);
     expect(added.saved).toBe(true);
 
+    const favoriteIds = await service.listFavoriteListingIds(buyer);
+    expect(favoriteIds).toContain(listing.id);
+
+    const favoriteListings = await service.listFavoriteListings(buyer);
+    expect(favoriteListings).toHaveLength(1);
+    expect(favoriteListings[0].id).toBe(listing.id);
+
     const removed = await service.removeFavorite(buyer, listing.id);
     expect(removed.removed).toBe(true);
+
+    const afterRemove = await service.listFavoriteListingIds(buyer);
+    expect(afterRemove).toHaveLength(0);
   });
 
   it("activates featured listing after webhook", async () => {

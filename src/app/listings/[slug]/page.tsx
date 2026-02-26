@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FavoriteToggleButton } from "@/components/favorite-toggle-button";
+import { getServerUser } from "@/lib/auth";
 import { formatNgn } from "@/lib/format";
 import { marketplaceService } from "@/server/services/container";
 
@@ -49,6 +51,10 @@ export default async function ListingDetailPage({ params }: ListingDetailProps) 
     notFound();
   }
 
+  const user = await getServerUser();
+  const favoriteListingIds = user ? await marketplaceService.listFavoriteListingIds(user) : [];
+  const isSaved = favoriteListingIds.includes(listing.id);
+
   const vehicleSchema = {
     "@context": "https://schema.org",
     "@type": "Vehicle",
@@ -76,6 +82,14 @@ export default async function ListingDetailPage({ params }: ListingDetailProps) 
         <Link className="brand-mark" href="/">
           NaijaAuto Marketplace
         </Link>
+        <nav className="nav-links">
+          <Link className="nav-link" href="/favorites">
+            Favorites
+          </Link>
+          <Link className="nav-link" href="/listings">
+            Browse Cars
+          </Link>
+        </nav>
       </header>
 
       <section className="section">
@@ -123,6 +137,9 @@ export default async function ListingDetailPage({ params }: ListingDetailProps) 
             >
               WhatsApp Seller
             </a>
+            {user ? (
+              <FavoriteToggleButton listingId={listing.id} initiallySaved={isSaved} />
+            ) : null}
           </div>
         </aside>
       </section>

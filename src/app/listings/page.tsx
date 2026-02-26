@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { FavoriteToggleButton } from "@/components/favorite-toggle-button";
 import { ListingCard } from "@/components/listing-card";
+import { getServerUser } from "@/lib/auth";
 import { marketplaceService } from "@/server/services/container";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,10 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
     pageSize: getStringParam(params.pageSize),
   };
 
-  const result = await marketplaceService.searchListings(filters);
+  const [result, user] = await Promise.all([marketplaceService.searchListings(filters), getServerUser()]);
+  const favoriteListingIds = user
+    ? new Set(await marketplaceService.listFavoriteListingIds(user))
+    : new Set<string>();
 
   return (
     <div className="page-shell">
@@ -46,6 +51,14 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
         <Link className="brand-mark" href="/">
           NaijaAuto Marketplace
         </Link>
+        <nav className="nav-links">
+          <Link className="nav-link" href="/favorites">
+            Favorites
+          </Link>
+          <Link className="nav-link" href="/seller/dashboard">
+            Seller Dashboard
+          </Link>
+        </nav>
       </header>
 
       <section className="section">
@@ -139,7 +152,17 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
         {result.items.length ? (
           <div className="card-grid">
             {result.items.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <div key={listing.id}>
+                <ListingCard listing={listing} />
+                {user ? (
+                  <div style={{ marginTop: 8 }}>
+                    <FavoriteToggleButton
+                      listingId={listing.id}
+                      initiallySaved={favoriteListingIds.has(listing.id)}
+                    />
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         ) : (

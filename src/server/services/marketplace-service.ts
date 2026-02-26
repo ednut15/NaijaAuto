@@ -498,6 +498,37 @@ export class MarketplaceService {
     };
   }
 
+  async listFavoriteListingIds(user: RequestUser): Promise<string[]> {
+    await this.upsertActor(user);
+
+    const favorites = await this.repo.listFavoritesByUser(user.id);
+    return favorites.map((item) => item.listingId);
+  }
+
+  async listFavoriteListings(user: RequestUser): Promise<Listing[]> {
+    await this.upsertActor(user);
+
+    const favorites = await this.repo.listFavoritesByUser(user.id);
+    const listingMap = new Map<string, Listing>();
+
+    const listings = await Promise.all(
+      favorites.map(async (favorite) => {
+        if (listingMap.has(favorite.listingId)) {
+          return listingMap.get(favorite.listingId) ?? null;
+        }
+
+        const listing = await this.repo.getListingById(favorite.listingId);
+        if (listing) {
+          listingMap.set(favorite.listingId, listing);
+        }
+
+        return listing;
+      }),
+    );
+
+    return listings.filter((listing): listing is Listing => Boolean(listing && listing.status === "approved"));
+  }
+
   async createFeaturedCheckout(
     user: RequestUser,
     payload: unknown,

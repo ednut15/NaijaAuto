@@ -20,6 +20,9 @@ export default async function HomePage() {
           <Link className="nav-link" href="/listings">
             Browse Cars
           </Link>
+          <Link className="nav-link" href="/favorites">
+            Favorites
+          </Link>
           <Link className="nav-link" href="/seller/dashboard">
             Seller Dashboard
           </Link>
