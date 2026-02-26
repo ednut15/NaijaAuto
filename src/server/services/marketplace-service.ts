@@ -186,6 +186,14 @@ export class MarketplaceService {
       throw new ApiError(403, "Verify phone number before creating listings.");
     }
 
+    const onboarding = await this.getSellerOnboarding(user);
+    if (!onboarding.isComplete) {
+      throw new ApiError(
+        403,
+        `Complete seller onboarding before creating listings. Missing: ${onboarding.missingFields.join(", ")}`,
+      );
+    }
+
     const parsed = createListingSchema.safeParse(payload);
     if (!parsed.success) {
       throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid listing payload.");
@@ -327,6 +335,14 @@ export class MarketplaceService {
 
     if (!user.phoneVerified) {
       throw new ApiError(403, "Phone verification is required before submission.");
+    }
+
+    const onboarding = await this.getSellerOnboarding(user);
+    if (!onboarding.isComplete) {
+      throw new ApiError(
+        403,
+        `Complete seller onboarding before submission. Missing: ${onboarding.missingFields.join(", ")}`,
+      );
     }
 
     const listing = await this.repo.getListingById(listingId);

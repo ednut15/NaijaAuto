@@ -4,6 +4,7 @@ import { ListingCard } from "@/components/listing-card";
 import { requireServerUser } from "@/lib/auth";
 import { marketplaceService } from "@/server/services/container";
 import { saveSellerOnboardingAction } from "@/app/seller/dashboard/actions";
+import { SellerListingComposer } from "@/app/seller/dashboard/seller-listing-composer";
 
 export const dynamic = "force-dynamic";
 
@@ -222,6 +223,16 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
           </form>
         </section>
       ) : null}
+
+      {onboarding.isComplete && user.phoneVerified ? (
+        <SellerListingComposer />
+      ) : (
+        <section className="section">
+          <div className="empty-state">
+            Complete seller profile and phone verification to create and submit listings.
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <h3 style={{ marginBottom: 10 }}>My Listings</h3>
