@@ -646,7 +646,7 @@ describe("MVP workflows", () => {
       });
 
       vi.setSystemTime(new Date("2026-01-08T12:00:00.000Z"));
-      const dashboard = await service.getModerationSlaDashboard();
+      const dashboard = await service.getModerationSlaDashboard(moderator);
 
       expect(dashboard.metrics.totalPending).toBe(3);
       expect(dashboard.metrics.highRiskCount).toBe(1);
@@ -675,5 +675,13 @@ describe("MVP workflows", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("enforces moderator role for moderation SLA dashboard access", async () => {
+    const { service } = buildService();
+
+    await expect(service.getModerationSlaDashboard(buyer)).rejects.toThrow(
+      "You do not have permission for this action.",
+    );
   });
 });

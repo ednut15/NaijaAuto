@@ -931,17 +931,18 @@ export class MarketplaceService {
     return updated;
   }
 
-  async getModerationQueue(): Promise<
-    ModerationQueueItem[]
-  > {
+  async getModerationQueue(moderator: RequestUser): Promise<ModerationQueueItem[]> {
+    assertRole(moderator, ["moderator", "super_admin"]);
+    await this.upsertActor(moderator);
+
     const pending = await this.repo.getModerationQueue();
 
     return this.toModerationQueueItems(pending);
   }
 
-  async getModerationSlaDashboard(): Promise<ModerationSlaDashboard> {
+  async getModerationSlaDashboard(moderator: RequestUser): Promise<ModerationSlaDashboard> {
     const now = Date.now();
-    const queue = await this.getModerationQueue();
+    const queue = await this.getModerationQueue(moderator);
 
     const ages = queue.map((item) => item.ageMinutes);
     const totalPending = queue.length;
