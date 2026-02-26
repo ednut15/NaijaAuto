@@ -298,9 +298,89 @@ a {
   background: var(--surface-elevated);
 }
 
-.map-board ul {
-  margin: 0;
-  padding-left: 18px;
+.map-board__surface {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 15% 12%, color-mix(in srgb, var(--brand) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 82% 86%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 40%),
+    linear-gradient(150deg, var(--card) 5%, var(--surface-soft) 95%);
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.map-board__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.map-board__pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.map-board__pin-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid var(--card);
+  background: var(--brand);
+  color: var(--button-text);
+  box-shadow: var(--shadow-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.map-board__pin-tooltip {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 0.76rem;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.map-board__pin:hover .map-board__pin-tooltip,
+.map-board__pin:focus-visible .map-board__pin-tooltip {
+  opacity: 1;
+}
+
+.map-board__list {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.map-board__list a {
+  color: var(--brand-strong);
 }
 
 .empty-state {
@@ -402,6 +482,10 @@ a {
   .city-link-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .map-board__surface {
+    min-height: 260px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -419,6 +503,10 @@ a {
 
   .city-link-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .map-board__surface {
+    min-height: 220px;
   }
 
   .theme-switcher {

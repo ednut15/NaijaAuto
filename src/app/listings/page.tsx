@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { FavoriteToggleButton } from "@/components/favorite-toggle-button";
 import { ListingCard } from "@/components/listing-card";
+import { ListingsMapBoard } from "@/components/listings-map-board";
 import { getServerUser } from "@/lib/auth";
 import { canViewModerationQueue, canViewSellerDashboard } from "@/lib/authorization";
 import { marketplaceService } from "@/server/services/container";
@@ -188,19 +189,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
         )}
       </section>
 
-      <section className="section map-board">
-        <h3 style={{ marginTop: 0 }}>Map pin preview</h3>
-        <p style={{ color: "var(--muted)", marginTop: 0 }}>
-          API-ready coordinates are attached to each listing for interactive map rendering.
-        </p>
-        <ul>
-          {result.items.slice(0, 6).map((listing) => (
-            <li key={`${listing.id}-pin`}>
-              {listing.title}: {listing.lat}, {listing.lng}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <ListingsMapBoard items={result.items} />
     </div>
   );
 }
