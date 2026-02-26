@@ -68,7 +68,7 @@ export function FavoriteToggleButton({
         {isPending ? "Updating..." : saved ? "Saved" : "Save"}
       </button>
       {error ? (
-        <p style={{ margin: "6px 0 0", color: "#8a2d2d", fontSize: "0.85rem" }}>
+        <p style={{ margin: "6px 0 0", color: "var(--danger)", fontSize: "0.85rem" }}>
           {error}
         </p>
       ) : null}

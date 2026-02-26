@@ -168,7 +168,7 @@ export function FeaturedPackagesManager({ initialPackages }: FeaturedPackagesMan
               <div className="empty-state">{pkg.code}: {errorByCode[pkg.code]}</div>
             ) : null}
             {messageByCode[pkg.code] ? (
-              <p style={{ margin: 0, color: "var(--teal-700)" }}>
+              <p style={{ margin: 0, color: "var(--brand)" }}>
                 {pkg.code}: {messageByCode[pkg.code]}
               </p>
             ) : null}

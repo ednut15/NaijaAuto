@@ -3,6 +3,8 @@ import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 
 import "./globals.css";
 import { AnalyticsScripts } from "@/components/analytics";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { APP_THEMES, DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -42,10 +44,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const allowedThemes = APP_THEMES.map((theme) => theme.id);
+  const themeBootstrapScript = `(() => {
+    try {
+      const storedTheme = window.localStorage.getItem("${THEME_STORAGE_KEY}");
+      const allowedThemes = ${JSON.stringify(allowedThemes)};
+      if (storedTheme && allowedThemes.includes(storedTheme)) {
+        document.documentElement.dataset.theme = storedTheme;
+      }
+    } catch {}
+  })();`;
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
         <AnalyticsScripts />
+        <ThemeSwitcher />
         {children}
       </body>
     </html>
