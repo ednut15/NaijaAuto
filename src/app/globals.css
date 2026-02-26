@@ -1,23 +1,5 @@
 @import "tailwindcss";
-
-:root {
-  --sand-50: #faf8f3;
-  --sand-100: #f2ede0;
-  --teal-700: #0f5f67;
-  --teal-800: #0b474d;
-  --ink-900: #112327;
-  --ink-700: #3a5257;
-  --lime-400: #a7d948;
-  --white: #ffffff;
-
-  --background: radial-gradient(circle at top right, #ddf1df 0%, #f6f3eb 45%, #f6f3eb 100%);
-  --text: var(--ink-900);
-  --muted: var(--ink-700);
-  --card: var(--white);
-  --line: #d9d8d1;
-  --radius-lg: 18px;
-  --shadow-soft: 0 10px 30px rgba(12, 54, 60, 0.08);
-}
+@import "./themes.css";
 
 * {
   box-sizing: border-box;
@@ -29,6 +11,9 @@ body {
   font-family: var(--font-space-grotesk), sans-serif;
   background: var(--background);
   min-height: 100vh;
+  transition:
+    background 220ms ease,
+    color 220ms ease;
 }
 
 a {
@@ -54,7 +39,7 @@ a {
   font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 0.92rem;
   letter-spacing: 0.06em;
-  color: var(--teal-700);
+  color: var(--brand);
   text-transform: uppercase;
 }
 
@@ -68,14 +53,48 @@ a {
   font-size: 0.86rem;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--surface-nav);
   border: 1px solid var(--line);
+}
+
+.theme-switcher {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 80;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(8px);
+  padding: 7px 10px;
+}
+
+.theme-switcher label {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.theme-switcher select {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
 }
 
 .hero {
   border-radius: 30px;
-  background: linear-gradient(130deg, #0f5f67 0%, #0b474d 56%, #0f5f67 100%);
-  color: var(--white);
+  background: var(--hero-gradient);
+  color: var(--hero-text);
   box-shadow: var(--shadow-soft);
   padding: clamp(22px, 4vw, 46px);
   position: relative;
@@ -88,7 +107,7 @@ a {
   width: 240px;
   height: 240px;
   border-radius: 50%;
-  background: rgba(167, 217, 72, 0.22);
+  background: var(--hero-glow);
   right: -60px;
   top: -60px;
 }
@@ -103,7 +122,7 @@ a {
 .hero p {
   margin: 14px 0 0;
   max-width: 64ch;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--hero-muted);
 }
 
 .metrics {
@@ -116,8 +135,8 @@ a {
 .metric-card {
   border-radius: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--hero-card-bg);
+  border: 1px solid var(--hero-card-line);
 }
 
 .metric-card strong {
@@ -154,8 +173,8 @@ a {
   gap: 8px;
   border: none;
   border-radius: 999px;
-  background: var(--teal-700);
-  color: white;
+  background: var(--brand);
+  color: var(--button-text);
   font-size: 0.9rem;
   font-weight: 600;
   padding: 10px 16px;
@@ -165,7 +184,7 @@ a {
 .button.secondary {
   background: transparent;
   border: 1px solid var(--line);
-  color: var(--ink-900);
+  color: var(--text);
 }
 
 .card-grid {
@@ -197,8 +216,8 @@ a {
   left: 10px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: var(--lime-400);
-  color: #223400;
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -235,14 +254,14 @@ a {
 }
 
 .listing-card__location {
-  color: var(--teal-800);
+  color: var(--brand-strong);
   font-weight: 600;
 }
 
 .filter-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--surface-soft);
   padding: 16px;
 }
 
@@ -259,7 +278,8 @@ a {
   border-radius: 10px;
   font-size: 0.9rem;
   padding: 9px 10px;
-  background: white;
+  background: var(--card);
+  color: var(--text);
 }
 
 .label {
@@ -275,7 +295,7 @@ a {
   border: 1px dashed var(--line);
   border-radius: var(--radius-lg);
   padding: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--surface-elevated);
 }
 
 .map-board ul {
@@ -286,7 +306,7 @@ a {
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--surface-elevated);
   padding: 24px;
   color: var(--muted);
 }
@@ -302,7 +322,7 @@ a {
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--line);
-  background: white;
+  background: var(--card);
 }
 
 .gallery-main {
@@ -331,7 +351,7 @@ a {
 .detail-aside {
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: white;
+  background: var(--card);
   padding: 18px;
 }
 
@@ -361,7 +381,7 @@ a {
 .city-link {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--surface-elevated);
   padding: 10px;
   font-size: 0.86rem;
 }
@@ -399,5 +419,10 @@ a {
 
   .city-link-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .theme-switcher {
+    right: 10px;
+    bottom: 10px;
   }
 }

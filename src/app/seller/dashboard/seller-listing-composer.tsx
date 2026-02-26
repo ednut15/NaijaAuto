@@ -361,8 +361,8 @@ export function SellerListingComposer() {
                     right: 4,
                     borderRadius: 999,
                     border: "none",
-                    background: "rgba(0,0,0,0.7)",
-                    color: "#fff",
+                    background: "var(--overlay-bg)",
+                    color: "var(--overlay-fg)",
                     padding: "2px 8px",
                     cursor: "pointer",
                   }}

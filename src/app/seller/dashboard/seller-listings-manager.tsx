@@ -37,13 +37,13 @@ function canEditListing(listing: Listing): boolean {
 function statusTone(status: Listing["status"]): string {
   switch (status) {
     case "approved":
-      return "#0f5f67";
+      return "var(--status-approved)";
     case "pending_review":
-      return "#7a5a00";
+      return "var(--status-pending)";
     case "rejected":
-      return "#8a2d2d";
+      return "var(--status-rejected)";
     default:
-      return "#3a5257";
+      return "var(--muted)";
   }
 }
 
@@ -452,8 +452,8 @@ function ListingEditor({ listing, onSaved, onCancel }: ListingEditorProps) {
                     right: 4,
                     borderRadius: 999,
                     border: "none",
-                    background: "rgba(0,0,0,0.7)",
-                    color: "#fff",
+                    background: "var(--overlay-bg)",
+                    color: "var(--overlay-fg)",
                     padding: "2px 8px",
                     cursor: "pointer",
                   }}
@@ -678,7 +678,7 @@ export function SellerListingsManager({ initialListings, featuredPackages }: Sel
               {canFeature ? (
                 <div className="filter-panel" style={{ marginBottom: 8 }}>
                   {listing.isFeatured ? (
-                    <p style={{ margin: "0 0 8px", color: "var(--teal-700)" }}>
+                    <p style={{ margin: "0 0 8px", color: "var(--brand)" }}>
                       Featured until:{" "}
                       <strong>
                         {listing.featuredUntil ? new Date(listing.featuredUntil).toLocaleString() : "active"}
@@ -732,7 +732,7 @@ export function SellerListingsManager({ initialListings, featuredPackages }: Sel
                       </button>
                     </div>
                   ) : (
-                    <p style={{ margin: 0, color: "#8a2d2d" }}>
+                    <p style={{ margin: 0, color: "var(--danger)" }}>
                       Featured packages are not available right now.
                     </p>
                   )}
@@ -740,7 +740,7 @@ export function SellerListingsManager({ initialListings, featuredPackages }: Sel
               ) : null}
 
               {photosShort && editable ? (
-                <p style={{ margin: "0 0 8px", color: "#8a2d2d" }}>
+                <p style={{ margin: "0 0 8px", color: "var(--danger)" }}>
                   Add {MIN_SUBMIT_PHOTOS - listing.photos.length} more photo(s) before resubmitting.
                 </p>
               ) : null}
