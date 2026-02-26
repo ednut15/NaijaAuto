@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ContactActionLinks } from "@/components/contact-action-links";
 import { FavoriteToggleButton } from "@/components/favorite-toggle-button";
 import { getServerUser } from "@/lib/auth";
 import { formatNgn } from "@/lib/format";
@@ -126,17 +127,11 @@ export default async function ListingDetailPage({ params }: ListingDetailProps) 
           </ul>
 
           <div className="quick-actions">
-            <a className="button" href={`tel:${listing.contactPhone}`}>
-              Call Seller
-            </a>
-            <a
-              className="button secondary"
-              href={`https://wa.me/${listing.contactWhatsapp.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              WhatsApp Seller
-            </a>
+            <ContactActionLinks
+              listingIdentifier={listing.slug}
+              contactPhone={listing.contactPhone}
+              contactWhatsapp={listing.contactWhatsapp}
+            />
             {user ? (
               <FavoriteToggleButton listingId={listing.id} initiallySaved={isSaved} />
             ) : null}

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 import type { RequestUser } from "@/lib/auth";
 import { MarketplaceService } from "@/server/services/marketplace-service";
@@ -166,6 +167,69 @@ describe("MVP workflows", () => {
 
     const afterRemove = await service.listFavoriteListingIds(buyer);
     expect(afterRemove).toHaveLength(0);
+  });
+
+  it("tracks buyer contact click events for approved listings", async () => {
+    const { repo, service } = buildService();
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+
+    await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Leads",
+      state: "Lagos",
+      city: "Lekki",
+      businessName: "Adewale Leads Ltd",
+    });
+
+    const listing = await service.createListing(seller, {
+      title: "2020 Hyundai Tucson",
+      description: "Approved listing used to validate buyer contact tracking events and channel attribution.",
+      priceNgn: 14900000,
+      year: 2020,
+      make: "Hyundai",
+      model: "Tucson",
+      bodyType: "suv",
+      mileageKm: 62000,
+      transmission: "automatic",
+      fuelType: "petrol",
+      vin: "KM8J33AL1LU123456",
+      state: "Lagos",
+      city: "Lekki",
+      lat: 6.4698,
+      lng: 3.5852,
+      photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/contact-${idx}/900/600`),
+      contactPhone: "+2348094442200",
+      contactWhatsapp: "+2348094442200",
+    });
+
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Approved for contact tracking test." });
+
+    const request = new NextRequest("http://localhost/listings/contact", {
+      headers: {
+        "x-forwarded-for": "41.190.2.1",
+        "user-agent": "vitest-contact-tracker",
+      },
+    });
+
+    const tracked = await service.trackContactClick(request, buyer, listing.slug, {
+      channel: "whatsapp",
+    });
+    expect(tracked).toEqual({
+      tracked: true,
+      channel: "whatsapp",
+    });
+
+    const events = await repo.listContactEventsByListingSince(
+      listing.id,
+      new Date(Date.now() - 60_000).toISOString(),
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].channel).toBe("whatsapp");
+    expect(events[0].userId).toBe(buyer.id);
+    expect(events[0].ip).toBe("41.190.2.1");
   });
 
   it("activates featured listing after webhook", async () => {
