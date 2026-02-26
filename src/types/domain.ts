@@ -98,6 +98,10 @@ export interface FeaturedPackage {
   createdAt: string;
 }
 
+export interface FeaturedPackageAdmin extends FeaturedPackage {
+  isActive: boolean;
+}
+
 export interface PaymentTransaction {
   id: string;
   listingId: string;

@@ -5,6 +5,7 @@ import type {
   AuditLog,
   DealerProfile,
   Favorite,
+  FeaturedPackageAdmin,
   FeaturedPackage,
   Listing,
   ListingContactEvent,
@@ -17,7 +18,12 @@ import type {
   SearchListingsInput,
 } from "@/types/domain";
 
-import type { DuplicateImageSignal, Repository, SearchResult } from "@/server/store/repository";
+import type {
+  DuplicateImageSignal,
+  FeaturedPackageUpdateInput,
+  Repository,
+  SearchResult,
+} from "@/server/store/repository";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -43,13 +49,14 @@ export class InMemoryRepository implements Repository {
   private notifications: Notification[] = [];
   private auditLogs: AuditLog[] = [];
   private paymentTransactions = new Map<string, PaymentTransaction>();
-  private featuredPackages: FeaturedPackage[] = [
+  private featuredPackages: FeaturedPackageAdmin[] = [
     {
       id: crypto.randomUUID(),
       code: "feature_7_days",
       name: "Featured - 7 Days",
       durationDays: 7,
       amountNgn: 25000,
+      isActive: true,
       createdAt: nowIso(),
     },
     {
@@ -58,6 +65,7 @@ export class InMemoryRepository implements Repository {
       name: "Featured - 14 Days",
       durationDays: 14,
       amountNgn: 45000,
+      isActive: true,
       createdAt: nowIso(),
     },
     {
@@ -66,6 +74,7 @@ export class InMemoryRepository implements Repository {
       name: "Featured - 30 Days",
       durationDays: 30,
       amountNgn: 80000,
+      isActive: true,
       createdAt: nowIso(),
     },
   ];
@@ -466,11 +475,60 @@ export class InMemoryRepository implements Repository {
   }
 
   async listFeaturedPackages(): Promise<FeaturedPackage[]> {
-    return [...this.featuredPackages];
+    return this.featuredPackages
+      .filter((pkg) => pkg.isActive)
+      .map((pkg) => ({
+        id: pkg.id,
+        code: pkg.code,
+        name: pkg.name,
+        durationDays: pkg.durationDays,
+        amountNgn: pkg.amountNgn,
+        createdAt: pkg.createdAt,
+      }));
   }
 
   async getFeaturedPackageByCode(code: string): Promise<FeaturedPackage | null> {
-    return this.featuredPackages.find((pkg) => normalize(pkg.code) === normalize(code)) ?? null;
+    const found = this.featuredPackages.find(
+      (pkg) => normalize(pkg.code) === normalize(code) && pkg.isActive,
+    );
+    if (!found) {
+      return null;
+    }
+
+    return {
+      id: found.id,
+      code: found.code,
+      name: found.name,
+      durationDays: found.durationDays,
+      amountNgn: found.amountNgn,
+      createdAt: found.createdAt,
+    };
+  }
+
+  async listFeaturedPackagesForAdmin(): Promise<FeaturedPackageAdmin[]> {
+    return [...this.featuredPackages].sort((a, b) => a.amountNgn - b.amountNgn);
+  }
+
+  async updateFeaturedPackageByCode(
+    code: string,
+    patch: FeaturedPackageUpdateInput,
+  ): Promise<FeaturedPackageAdmin | null> {
+    const index = this.featuredPackages.findIndex((pkg) => normalize(pkg.code) === normalize(code));
+    if (index === -1) {
+      return null;
+    }
+
+    const existing = this.featuredPackages[index];
+    const updated: FeaturedPackageAdmin = {
+      ...existing,
+      name: patch.name ?? existing.name,
+      durationDays: patch.durationDays ?? existing.durationDays,
+      amountNgn: patch.amountNgn ?? existing.amountNgn,
+      isActive: patch.isActive ?? existing.isActive,
+    };
+
+    this.featuredPackages[index] = updated;
+    return updated;
   }
 
   async createPaymentTransaction(

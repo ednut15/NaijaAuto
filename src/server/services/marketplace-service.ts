@@ -12,10 +12,12 @@ import {
   updateListingSchema,
   verifyOtpSchema,
 } from "@/lib/validation/listing";
+import { updateFeaturedPackageSchema } from "@/lib/validation/admin";
 import { sellerOnboardingSchema } from "@/lib/validation/seller";
 import type {
   ContactChannel,
   DealerProfile,
+  FeaturedPackageAdmin,
   Listing,
   SearchListingsInput,
   SellerProfile,
@@ -646,6 +648,71 @@ export class MarketplaceService {
       reference: initialized.reference,
       amountNgn: featurePackage.amountNgn,
     };
+  }
+
+  async listFeaturedPackagesForAdmin(user: RequestUser): Promise<FeaturedPackageAdmin[]> {
+    assertRole(user, ["super_admin"]);
+    await this.upsertActor(user);
+
+    return this.repo.listFeaturedPackagesForAdmin();
+  }
+
+  async updateFeaturedPackageForAdmin(
+    user: RequestUser,
+    packageCode: string,
+    payload: unknown,
+  ): Promise<FeaturedPackageAdmin> {
+    assertRole(user, ["super_admin"]);
+    await this.upsertActor(user);
+
+    const normalizedCode = packageCode.trim().toLowerCase();
+    if (!normalizedCode) {
+      throw new ApiError(400, "Package code is required.");
+    }
+
+    const parsed = updateFeaturedPackageSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid featured package payload.");
+    }
+
+    const packages = await this.repo.listFeaturedPackagesForAdmin();
+    const current = packages.find((item) => normalize(item.code) === normalizedCode);
+    if (!current) {
+      throw new ApiError(404, "Featured package not found.");
+    }
+
+    const updated = await this.repo.updateFeaturedPackageByCode(current.code, parsed.data);
+    if (!updated) {
+      throw new ApiError(500, "Unable to update featured package.");
+    }
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    if (parsed.data.name !== undefined && parsed.data.name !== current.name) {
+      changes.name = { from: current.name, to: parsed.data.name };
+    }
+    if (parsed.data.durationDays !== undefined && parsed.data.durationDays !== current.durationDays) {
+      changes.durationDays = { from: current.durationDays, to: parsed.data.durationDays };
+    }
+    if (parsed.data.amountNgn !== undefined && parsed.data.amountNgn !== current.amountNgn) {
+      changes.amountNgn = { from: current.amountNgn, to: parsed.data.amountNgn };
+    }
+    if (parsed.data.isActive !== undefined && parsed.data.isActive !== current.isActive) {
+      changes.isActive = { from: current.isActive, to: parsed.data.isActive };
+    }
+
+    await this.repo.addAuditLog({
+      id: crypto.randomUUID(),
+      actorUserId: user.id,
+      entityType: "featured_packages",
+      entityId: updated.id,
+      action: "featured_package_updated",
+      metadata: {
+        code: updated.code,
+        changes,
+      },
+    });
+
+    return updated;
   }
 
   async handlePaystackWebhook(
