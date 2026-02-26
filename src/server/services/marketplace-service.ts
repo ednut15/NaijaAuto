@@ -12,7 +12,15 @@ import {
   updateListingSchema,
   verifyOtpSchema,
 } from "@/lib/validation/listing";
-import type { ContactChannel, Listing, SearchListingsInput, UserRole } from "@/types/domain";
+import { sellerOnboardingSchema } from "@/lib/validation/seller";
+import type {
+  ContactChannel,
+  DealerProfile,
+  Listing,
+  SearchListingsInput,
+  SellerProfile,
+  UserRole,
+} from "@/types/domain";
 
 import type { RequestUser } from "@/lib/auth";
 
@@ -26,6 +34,14 @@ import { rankListings } from "@/server/search/ranking";
 import type { Repository } from "@/server/store/repository";
 
 const SUBMIT_MIN_PHOTOS = 15;
+
+interface SellerOnboardingState {
+  user: Awaited<ReturnType<Repository["upsertUser"]>>;
+  sellerProfile: SellerProfile | null;
+  dealerProfile: DealerProfile | null;
+  isComplete: boolean;
+  missingFields: string[];
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -779,6 +795,77 @@ export class MarketplaceService {
     });
   }
 
+  async getSellerOnboarding(user: RequestUser): Promise<SellerOnboardingState> {
+    assertRole(user, ["seller"]);
+
+    const userRecord = await this.repo.upsertUser({
+      id: user.id,
+      role: user.role,
+      sellerType: user.sellerType,
+      phoneVerified: user.phoneVerified,
+      email: user.email,
+    });
+
+    const [sellerProfile, dealerProfile] = await Promise.all([
+      this.repo.getSellerProfileByUserId(user.id),
+      this.repo.getDealerProfileByUserId(user.id),
+    ]);
+
+    return this.buildSellerOnboardingState(userRecord, sellerProfile, dealerProfile);
+  }
+
+  async upsertSellerOnboarding(user: RequestUser, payload: unknown): Promise<SellerOnboardingState> {
+    assertRole(user, ["seller"]);
+
+    const parsed = sellerOnboardingSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid seller onboarding payload.");
+    }
+
+    const input = parsed.data;
+    const userRecord = await this.repo.upsertUser({
+      id: user.id,
+      role: user.role,
+      sellerType: input.sellerType,
+      phoneVerified: user.phoneVerified,
+      email: user.email,
+    });
+
+    const sellerProfile = await this.repo.upsertSellerProfile({
+      userId: user.id,
+      fullName: input.fullName,
+      state: input.state,
+      city: input.city,
+      bio: input.bio ?? null,
+    });
+
+    let dealerProfile: DealerProfile | null = null;
+
+    if (input.sellerType === "dealer") {
+      dealerProfile = await this.repo.upsertDealerProfile({
+        userId: user.id,
+        businessName: input.businessName!,
+        cacNumber: input.cacNumber ?? null,
+        address: input.address ?? null,
+      });
+    } else {
+      await this.repo.deleteDealerProfile(user.id);
+    }
+
+    await this.repo.addAuditLog({
+      id: crypto.randomUUID(),
+      actorUserId: user.id,
+      entityType: "seller_profiles",
+      entityId: user.id,
+      action: "seller_profile_upserted",
+      metadata: {
+        sellerType: input.sellerType,
+      },
+    });
+
+    return this.buildSellerOnboardingState(userRecord, sellerProfile, dealerProfile);
+  }
+
   async getSellerDashboard(user: RequestUser): Promise<{
     listings: Listing[];
     notifications: Awaited<ReturnType<Repository["listNotificationsByUser"]>>;
@@ -878,5 +965,41 @@ export class MarketplaceService {
     }
 
     return this.repo.getListingBySlug(identifier);
+  }
+
+  private buildSellerOnboardingState(
+    userRecord: Awaited<ReturnType<Repository["upsertUser"]>>,
+    sellerProfile: SellerProfile | null,
+    dealerProfile: DealerProfile | null,
+  ): SellerOnboardingState {
+    const missingFields: string[] = [];
+
+    if (!userRecord.sellerType) {
+      missingFields.push("sellerType");
+    }
+
+    if (!sellerProfile?.fullName?.trim()) {
+      missingFields.push("fullName");
+    }
+
+    if (!sellerProfile?.state?.trim()) {
+      missingFields.push("state");
+    }
+
+    if (!sellerProfile?.city?.trim()) {
+      missingFields.push("city");
+    }
+
+    if (userRecord.sellerType === "dealer" && !dealerProfile?.businessName?.trim()) {
+      missingFields.push("businessName");
+    }
+
+    return {
+      user: userRecord,
+      sellerProfile,
+      dealerProfile,
+      isComplete: missingFields.length === 0,
+      missingFields,
+    };
   }
 }

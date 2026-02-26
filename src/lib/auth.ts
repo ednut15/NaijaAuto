@@ -1,7 +1,11 @@
+import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
+import { cookies, headers } from "next/headers";
 import { NextRequest } from "next/server";
 
 import type { SellerType, UserRole } from "@/types/domain";
 
+import { env } from "@/lib/env";
 import { ApiError } from "@/lib/http";
 import { getSupabaseAnonClient } from "@/server/supabase/client";
 
@@ -16,15 +20,19 @@ export interface RequestUser {
 const validRoles = new Set<UserRole>(["buyer", "seller", "moderator", "super_admin"]);
 const validSellerTypes = new Set<SellerType>(["dealer", "private"]);
 
-function parseUserFromHeaders(request: NextRequest): RequestUser | null {
-  const id = request.headers.get("x-user-id");
-  const roleHeader = request.headers.get("x-user-role");
+interface HeaderReader {
+  get(name: string): string | null;
+}
+
+function parseUserFromHeaderValues(reader: HeaderReader): RequestUser | null {
+  const id = reader.get("x-user-id");
+  const roleHeader = reader.get("x-user-role");
 
   if (!id || !roleHeader || !validRoles.has(roleHeader as UserRole)) {
     return null;
   }
 
-  const sellerTypeHeader = request.headers.get("x-seller-type");
+  const sellerTypeHeader = reader.get("x-seller-type");
   const sellerType = validSellerTypes.has(sellerTypeHeader as SellerType)
     ? (sellerTypeHeader as SellerType)
     : undefined;
@@ -33,8 +41,8 @@ function parseUserFromHeaders(request: NextRequest): RequestUser | null {
     id,
     role: roleHeader as UserRole,
     sellerType,
-    phoneVerified: request.headers.get("x-phone-verified") === "true",
-    email: request.headers.get("x-user-email") ?? undefined,
+    phoneVerified: reader.get("x-phone-verified") === "true",
+    email: reader.get("x-user-email") ?? undefined,
   };
 }
 
@@ -54,8 +62,29 @@ function asSellerType(input: unknown): SellerType | undefined {
   return validSellerTypes.has(input as SellerType) ? (input as SellerType) : undefined;
 }
 
-async function parseUserFromSupabaseToken(request: NextRequest): Promise<RequestUser | null> {
-  const authHeader = request.headers.get("authorization");
+function toRequestUserFromSupabaseUser(user: User): RequestUser {
+  const role = asRole(user.app_metadata?.role) ?? asRole(user.user_metadata?.role) ?? "buyer";
+
+  const sellerType =
+    asSellerType(user.app_metadata?.seller_type) ?? asSellerType(user.user_metadata?.seller_type);
+
+  const phoneVerifiedFromMetadata =
+    typeof user.app_metadata?.phone_verified === "boolean"
+      ? user.app_metadata.phone_verified
+      : typeof user.user_metadata?.phone_verified === "boolean"
+        ? user.user_metadata.phone_verified
+        : undefined;
+
+  return {
+    id: user.id,
+    role,
+    sellerType,
+    phoneVerified: phoneVerifiedFromMetadata ?? Boolean(user.phone_confirmed_at),
+    email: user.email ?? undefined,
+  };
+}
+
+async function parseUserFromAuthorizationHeader(authHeader: string | null): Promise<RequestUser | null> {
   if (!authHeader?.toLowerCase().startsWith("bearer ")) {
     return null;
   }
@@ -75,36 +104,51 @@ async function parseUserFromSupabaseToken(request: NextRequest): Promise<Request
     return null;
   }
 
-  const role =
-    asRole(data.user.app_metadata?.role) ?? asRole(data.user.user_metadata?.role) ?? "buyer";
+  return toRequestUserFromSupabaseUser(data.user);
+}
 
-  const sellerType =
-    asSellerType(data.user.app_metadata?.seller_type) ??
-    asSellerType(data.user.user_metadata?.seller_type);
+async function parseUserFromSupabaseCookieSession(): Promise<RequestUser | null> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+    return null;
+  }
 
-  const phoneVerifiedFromMetadata =
-    typeof data.user.app_metadata?.phone_verified === "boolean"
-      ? data.user.app_metadata.phone_verified
-      : typeof data.user.user_metadata?.phone_verified === "boolean"
-        ? data.user.user_metadata.phone_verified
-        : undefined;
+  const cookieStore = await cookies();
 
-  return {
-    id: data.user.id,
-    role,
-    sellerType,
-    phoneVerified: phoneVerifiedFromMetadata ?? Boolean(data.user.phone_confirmed_at),
-    email: data.user.email ?? undefined,
-  };
+  const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll().map((cookie) => ({
+          name: cookie.name,
+          value: cookie.value,
+        }));
+      },
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          try {
+            cookieStore.set(cookie.name, cookie.value, cookie.options);
+          } catch {
+            // No-op in read-only contexts.
+          }
+        }
+      },
+    },
+  });
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    return null;
+  }
+
+  return toRequestUserFromSupabaseUser(data.user);
 }
 
 export async function getRequestUser(request: NextRequest): Promise<RequestUser | null> {
-  const tokenUser = await parseUserFromSupabaseToken(request);
+  const tokenUser = await parseUserFromAuthorizationHeader(request.headers.get("authorization"));
   if (tokenUser) {
     return tokenUser;
   }
 
-  return parseUserFromHeaders(request);
+  return parseUserFromHeaderValues(request.headers);
 }
 
 export async function requireUser(
@@ -117,6 +161,39 @@ export async function requireUser(
     throw new ApiError(
       401,
       "Authentication required. Send a Supabase bearer token or x-user-id/x-user-role headers for local sandbox mode.",
+    );
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    throw new ApiError(403, "You do not have permission for this action.");
+  }
+
+  return user;
+}
+
+export async function getServerUser(): Promise<RequestUser | null> {
+  const headerStore = await headers();
+
+  const tokenUser = await parseUserFromAuthorizationHeader(headerStore.get("authorization"));
+  if (tokenUser) {
+    return tokenUser;
+  }
+
+  const sessionUser = await parseUserFromSupabaseCookieSession();
+  if (sessionUser) {
+    return sessionUser;
+  }
+
+  return parseUserFromHeaderValues(headerStore);
+}
+
+export async function requireServerUser(allowedRoles?: UserRole[]): Promise<RequestUser> {
+  const user = await getServerUser();
+
+  if (!user) {
+    throw new ApiError(
+      401,
+      "Authentication required. Sign in with Supabase Auth or provide x-user-id/x-user-role headers for local sandbox mode.",
     );
   }
 
