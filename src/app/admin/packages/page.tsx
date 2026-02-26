@@ -28,6 +28,11 @@ export default async function AdminFeaturedPackagesPage() {
           <Link className="brand-mark" href="/">
             NaijaAuto Marketplace
           </Link>
+          <nav className="nav-links">
+            <Link className="nav-link" href="/sign-in?next=/admin/packages">
+              Sign In
+            </Link>
+          </nav>
         </header>
 
         <section className="section">
@@ -48,6 +53,14 @@ export default async function AdminFeaturedPackagesPage() {
         <Link className="brand-mark" href="/">
           NaijaAuto Marketplace
         </Link>
+        <nav className="nav-links">
+          <Link className="nav-link" href="/moderator/queue">
+            Moderation Queue
+          </Link>
+          <Link className="nav-link" href="/sign-out">
+            Sign Out
+          </Link>
+        </nav>
       </header>
 
       <section className="section-head section">

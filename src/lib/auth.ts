@@ -5,9 +5,13 @@ import { NextRequest } from "next/server";
 
 import type { SellerType, UserRole } from "@/types/domain";
 
-import { env } from "@/lib/env";
+import { env, isProduction } from "@/lib/env";
 import { ApiError } from "@/lib/http";
-import { getSupabaseAnonClient } from "@/server/supabase/client";
+import {
+  getSupabaseAnonClient,
+  getSupabaseAdminClient,
+  hasSupabaseAdminConfig,
+} from "@/server/supabase/client";
 
 export interface RequestUser {
   id: string;
@@ -34,7 +38,18 @@ interface SupabaseCookieAdapter {
   setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>): void;
 }
 
+interface AuthDbUserRow {
+  role: UserRole;
+  seller_type: SellerType | null;
+  phone_verified: boolean;
+  email: string | null;
+}
+
 function parseUserFromHeaderValues(reader: HeaderReader): RequestUser | null {
+  if (isProduction) {
+    return null;
+  }
+
   const id = reader.get("x-user-id");
   const roleHeader = reader.get("x-user-role");
 
@@ -72,25 +87,55 @@ function asSellerType(input: unknown): SellerType | undefined {
   return validSellerTypes.has(input as SellerType) ? (input as SellerType) : undefined;
 }
 
-function toRequestUserFromSupabaseUser(user: User): RequestUser {
-  const role = asRole(user.app_metadata?.role) ?? asRole(user.user_metadata?.role) ?? "buyer";
+function asSelfAssignableRole(input: unknown): "buyer" | "seller" | undefined {
+  if (input === "buyer" || input === "seller") {
+    return input;
+  }
+
+  return undefined;
+}
+
+async function getUserContextFromDatabase(userId: string): Promise<AuthDbUserRow | null> {
+  if (!hasSupabaseAdminConfig()) {
+    return null;
+  }
+
+  const client = getSupabaseAdminClient();
+  const { data, error } = await client
+    .from("users")
+    .select("role, seller_type, phone_verified, email")
+    .eq("id", userId)
+    .maybeSingle<AuthDbUserRow>();
+
+  if (error) {
+    return null;
+  }
+
+  return data ?? null;
+}
+
+async function toRequestUserFromSupabaseUser(user: User): Promise<RequestUser> {
+  const dbUser = await getUserContextFromDatabase(user.id);
+
+  const appRole = asRole(user.app_metadata?.role);
+  const userRole = asSelfAssignableRole(user.user_metadata?.role);
+  const dbRole = asRole(dbUser?.role);
+  const role = dbRole ?? appRole ?? userRole ?? "buyer";
 
   const sellerType =
-    asSellerType(user.app_metadata?.seller_type) ?? asSellerType(user.user_metadata?.seller_type);
+    asSellerType(dbUser?.seller_type) ??
+    asSellerType(user.app_metadata?.seller_type) ??
+    asSellerType(user.user_metadata?.seller_type);
 
-  const phoneVerifiedFromMetadata =
-    typeof user.app_metadata?.phone_verified === "boolean"
-      ? user.app_metadata.phone_verified
-      : typeof user.user_metadata?.phone_verified === "boolean"
-        ? user.user_metadata.phone_verified
-        : undefined;
+  const phoneVerifiedFromAppMetadata =
+    typeof user.app_metadata?.phone_verified === "boolean" ? user.app_metadata.phone_verified : undefined;
 
   return {
     id: user.id,
     role,
     sellerType,
-    phoneVerified: phoneVerifiedFromMetadata ?? Boolean(user.phone_confirmed_at),
-    email: user.email ?? undefined,
+    phoneVerified: dbUser?.phone_verified ?? phoneVerifiedFromAppMetadata ?? Boolean(user.phone_confirmed_at),
+    email: dbUser?.email ?? user.email ?? undefined,
   };
 }
 
@@ -114,7 +159,7 @@ async function parseUserFromAuthorizationHeader(authHeader: string | null): Prom
     return null;
   }
 
-  return toRequestUserFromSupabaseUser(data.user);
+  return await toRequestUserFromSupabaseUser(data.user);
 }
 
 async function parseUserFromSupabaseCookieAdapter(
@@ -133,7 +178,7 @@ async function parseUserFromSupabaseCookieAdapter(
     return null;
   }
 
-  return toRequestUserFromSupabaseUser(data.user);
+  return await toRequestUserFromSupabaseUser(data.user);
 }
 
 async function parseUserFromSupabaseCookieSession(): Promise<RequestUser | null> {
@@ -193,10 +238,9 @@ export async function requireUser(
   const user = await getRequestUser(request);
 
   if (!user) {
-    throw new ApiError(
-      401,
-      "Authentication required. Use Supabase session/bearer auth or x-user-id/x-user-role headers for local sandbox mode.",
-    );
+    throw new ApiError(401, isProduction
+      ? "Authentication required. Use Supabase session or bearer authentication."
+      : "Authentication required. Use Supabase session/bearer auth or x-user-id/x-user-role headers for local sandbox mode.");
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -226,10 +270,9 @@ export async function requireServerUser(allowedRoles?: UserRole[]): Promise<Requ
   const user = await getServerUser();
 
   if (!user) {
-    throw new ApiError(
-      401,
-      "Authentication required. Sign in with Supabase Auth or provide x-user-id/x-user-role headers for local sandbox mode.",
-    );
+    throw new ApiError(401, isProduction
+      ? "Authentication required. Sign in with Supabase Auth."
+      : "Authentication required. Sign in with Supabase Auth or provide x-user-id/x-user-role headers for local sandbox mode.");
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {

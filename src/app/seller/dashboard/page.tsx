@@ -47,6 +47,11 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
           <Link className="brand-mark" href="/">
             NaijaAuto Marketplace
           </Link>
+          <nav className="nav-links">
+            <Link className="nav-link" href="/sign-in?next=/seller/dashboard">
+              Sign In
+            </Link>
+          </nav>
         </header>
 
         <section className="section">
@@ -76,6 +81,14 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
         <Link className="brand-mark" href="/">
           NaijaAuto Marketplace
         </Link>
+        <nav className="nav-links">
+          <Link className="nav-link" href="/listings">
+            Browse Cars
+          </Link>
+          <Link className="nav-link" href="/sign-out">
+            Sign Out
+          </Link>
+        </nav>
       </header>
 
       <section className="section-head section">

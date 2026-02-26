@@ -29,6 +29,9 @@ export default async function FavoritesPage() {
             <Link className="nav-link" href="/listings">
               Browse Cars
             </Link>
+            <Link className="nav-link" href="/sign-in?next=/favorites">
+              Sign In
+            </Link>
           </nav>
         </header>
 
@@ -55,6 +58,9 @@ export default async function FavoritesPage() {
           </Link>
           <Link className="nav-link" href="/seller/dashboard">
             Seller Dashboard
+          </Link>
+          <Link className="nav-link" href="/sign-out">
+            Sign Out
           </Link>
         </nav>
       </header>

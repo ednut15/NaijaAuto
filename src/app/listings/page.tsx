@@ -52,12 +52,22 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           NaijaAuto Marketplace
         </Link>
         <nav className="nav-links">
+          {!user ? (
+            <Link className="nav-link" href="/sign-in?next=/listings">
+              Sign In
+            </Link>
+          ) : null}
           <Link className="nav-link" href="/favorites">
             Favorites
           </Link>
           <Link className="nav-link" href="/seller/dashboard">
             Seller Dashboard
           </Link>
+          {user ? (
+            <Link className="nav-link" href="/sign-out">
+              Sign Out
+            </Link>
+          ) : null}
         </nav>
       </header>
 

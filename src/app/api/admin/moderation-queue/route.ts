@@ -6,8 +6,8 @@ import { marketplaceService } from "@/server/services/container";
 
 export async function GET(request: NextRequest) {
   try {
-    await requireUser(request, ["moderator", "super_admin"]);
-    const dashboard = await marketplaceService.getModerationSlaDashboard();
+    const user = await requireUser(request, ["moderator", "super_admin"]);
+    const dashboard = await marketplaceService.getModerationSlaDashboard(user);
     return jsonOk(dashboard);
   } catch (error) {
     return handleApiError(error);

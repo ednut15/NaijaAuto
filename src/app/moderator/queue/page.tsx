@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { requireServerUser } from "@/lib/auth";
 import { marketplaceService } from "@/server/services/container";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,40 @@ export const metadata = {
 };
 
 export default async function ModeratorQueuePage() {
-  const dashboard = await marketplaceService.getModerationSlaDashboard();
+  let user;
+  let accessError: string | null = null;
+
+  try {
+    user = await requireServerUser(["moderator", "super_admin"]);
+  } catch (error) {
+    accessError = error instanceof Error ? error.message : "Unable to load moderation dashboard.";
+  }
+
+  if (!user) {
+    return (
+      <div className="page-shell">
+        <header className="top-nav">
+          <Link className="brand-mark" href="/">
+            NaijaAuto Marketplace
+          </Link>
+          <nav className="nav-links">
+            <Link className="nav-link" href="/sign-in?next=/moderator/queue">
+              Sign In
+            </Link>
+          </nav>
+        </header>
+
+        <section className="section">
+          <div className="empty-state">
+            <h2 style={{ marginTop: 0 }}>Moderator access required</h2>
+            <p>{accessError ?? "Sign in with a moderator or super admin account to continue."}</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const dashboard = await marketplaceService.getModerationSlaDashboard(user);
   const { queue, metrics, throughputByDay } = dashboard;
 
   return (
@@ -19,6 +53,14 @@ export default async function ModeratorQueuePage() {
         <Link className="brand-mark" href="/">
           NaijaAuto Marketplace
         </Link>
+        <nav className="nav-links">
+          <Link className="nav-link" href="/admin/packages">
+            Admin Packages
+          </Link>
+          <Link className="nav-link" href="/sign-out">
+            Sign Out
+          </Link>
+        </nav>
       </header>
 
       <section className="section-head section">
