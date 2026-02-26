@@ -1,6 +1,7 @@
 import type {
   AppUser,
   AuditLog,
+  DealerProfile,
   Favorite,
   FeaturedPackage,
   Listing,
@@ -10,6 +11,7 @@ import type {
   Notification,
   OtpVerification,
   PaymentTransaction,
+  SellerProfile,
   SearchListingsInput,
   SellerType,
   UserRole,
@@ -109,6 +111,26 @@ interface UserRow {
   updated_at: string;
 }
 
+interface SellerProfileRow {
+  user_id: string;
+  full_name: string;
+  state: string | null;
+  city: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DealerProfileRow {
+  user_id: string;
+  business_name: string;
+  cac_number: string | null;
+  address: string | null;
+  verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 function mapUser(row: UserRow): AppUser {
   return {
     id: row.id,
@@ -117,6 +139,30 @@ function mapUser(row: UserRow): AppUser {
     email: row.email ?? undefined,
     phone: row.phone ?? undefined,
     phoneVerified: row.phone_verified,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapSellerProfile(row: SellerProfileRow): SellerProfile {
+  return {
+    userId: row.user_id,
+    fullName: row.full_name,
+    state: row.state,
+    city: row.city,
+    bio: row.bio,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapDealerProfile(row: DealerProfileRow): DealerProfile {
+  return {
+    userId: row.user_id,
+    businessName: row.business_name,
+    cacNumber: row.cac_number,
+    address: row.address,
+    verified: row.verified,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -285,6 +331,88 @@ export class SupabaseRepository implements Repository {
     ensureNoError(error, "Failed to mark phone verified");
 
     return mapUser(ensureData(data, "Failed to mark phone verified"));
+  }
+
+  async getSellerProfileByUserId(userId: string): Promise<SellerProfile | null> {
+    const { data, error } = await this.client
+      .from("seller_profiles")
+      .select("user_id, full_name, state, city, bio, created_at, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle<SellerProfileRow>();
+
+    ensureNoError(error, "Failed to get seller profile");
+
+    return data ? mapSellerProfile(data) : null;
+  }
+
+  async upsertSellerProfile(input: {
+    userId: string;
+    fullName: string;
+    state?: string | null;
+    city?: string | null;
+    bio?: string | null;
+  }): Promise<SellerProfile> {
+    const payload = {
+      user_id: input.userId,
+      full_name: input.fullName,
+      state: input.state ?? null,
+      city: input.city ?? null,
+      bio: input.bio ?? null,
+    };
+
+    const { data, error } = await this.client
+      .from("seller_profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select("user_id, full_name, state, city, bio, created_at, updated_at")
+      .single<SellerProfileRow>();
+
+    ensureNoError(error, "Failed to upsert seller profile");
+
+    return mapSellerProfile(ensureData(data, "Failed to upsert seller profile"));
+  }
+
+  async getDealerProfileByUserId(userId: string): Promise<DealerProfile | null> {
+    const { data, error } = await this.client
+      .from("dealer_profiles")
+      .select("user_id, business_name, cac_number, address, verified, created_at, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle<DealerProfileRow>();
+
+    ensureNoError(error, "Failed to get dealer profile");
+
+    return data ? mapDealerProfile(data) : null;
+  }
+
+  async upsertDealerProfile(input: {
+    userId: string;
+    businessName: string;
+    cacNumber?: string | null;
+    address?: string | null;
+    verified?: boolean;
+  }): Promise<DealerProfile> {
+    const payload = {
+      user_id: input.userId,
+      business_name: input.businessName,
+      cac_number: input.cacNumber ?? null,
+      address: input.address ?? null,
+      verified: input.verified ?? false,
+    };
+
+    const { data, error } = await this.client
+      .from("dealer_profiles")
+      .upsert(payload, { onConflict: "user_id" })
+      .select("user_id, business_name, cac_number, address, verified, created_at, updated_at")
+      .single<DealerProfileRow>();
+
+    ensureNoError(error, "Failed to upsert dealer profile");
+
+    return mapDealerProfile(ensureData(data, "Failed to upsert dealer profile"));
+  }
+
+  async deleteDealerProfile(userId: string): Promise<void> {
+    const { error } = await this.client.from("dealer_profiles").delete().eq("user_id", userId);
+
+    ensureNoError(error, "Failed to delete dealer profile");
   }
 
   async createOtp(input: {

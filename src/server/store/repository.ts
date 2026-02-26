@@ -1,6 +1,7 @@
 import type {
   AppUser,
   AuditLog,
+  DealerProfile,
   Favorite,
   FeaturedPackage,
   Listing,
@@ -10,6 +11,7 @@ import type {
   Notification,
   OtpVerification,
   PaymentTransaction,
+  SellerProfile,
   SearchListingsInput,
   SellerType,
   UserRole,
@@ -40,6 +42,23 @@ export interface Repository {
   }): Promise<AppUser>;
   getUserById(id: string): Promise<AppUser | null>;
   markPhoneVerified(userId: string, phone: string): Promise<AppUser>;
+  getSellerProfileByUserId(userId: string): Promise<SellerProfile | null>;
+  upsertSellerProfile(input: {
+    userId: string;
+    fullName: string;
+    state?: string | null;
+    city?: string | null;
+    bio?: string | null;
+  }): Promise<SellerProfile>;
+  getDealerProfileByUserId(userId: string): Promise<DealerProfile | null>;
+  upsertDealerProfile(input: {
+    userId: string;
+    businessName: string;
+    cacNumber?: string | null;
+    address?: string | null;
+    verified?: boolean;
+  }): Promise<DealerProfile>;
+  deleteDealerProfile(userId: string): Promise<void>;
 
   createOtp(input: {
     userId: string;

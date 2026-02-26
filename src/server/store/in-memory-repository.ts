@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import type {
   AppUser,
   AuditLog,
+  DealerProfile,
   Favorite,
   FeaturedPackage,
   Listing,
@@ -12,6 +13,7 @@ import type {
   Notification,
   OtpVerification,
   PaymentTransaction,
+  SellerProfile,
   SearchListingsInput,
 } from "@/types/domain";
 
@@ -31,6 +33,8 @@ function hashPhoto(url: string): string {
 
 export class InMemoryRepository implements Repository {
   private users = new Map<string, AppUser>();
+  private sellerProfiles = new Map<string, SellerProfile>();
+  private dealerProfiles = new Map<string, DealerProfile>();
   private listings = new Map<string, Listing>();
   private otps = new Map<string, OtpVerification>();
   private favorites: Favorite[] = [];
@@ -127,6 +131,66 @@ export class InMemoryRepository implements Repository {
 
     this.users.set(user.id, user);
     return user;
+  }
+
+  async getSellerProfileByUserId(userId: string): Promise<SellerProfile | null> {
+    return this.sellerProfiles.get(userId) ?? null;
+  }
+
+  async upsertSellerProfile(input: {
+    userId: string;
+    fullName: string;
+    state?: string | null;
+    city?: string | null;
+    bio?: string | null;
+  }): Promise<SellerProfile> {
+    const existing = this.sellerProfiles.get(input.userId);
+    const timestamp = nowIso();
+
+    const profile: SellerProfile = {
+      userId: input.userId,
+      fullName: input.fullName,
+      state: input.state ?? null,
+      city: input.city ?? null,
+      bio: input.bio ?? null,
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.sellerProfiles.set(input.userId, profile);
+    return profile;
+  }
+
+  async getDealerProfileByUserId(userId: string): Promise<DealerProfile | null> {
+    return this.dealerProfiles.get(userId) ?? null;
+  }
+
+  async upsertDealerProfile(input: {
+    userId: string;
+    businessName: string;
+    cacNumber?: string | null;
+    address?: string | null;
+    verified?: boolean;
+  }): Promise<DealerProfile> {
+    const existing = this.dealerProfiles.get(input.userId);
+    const timestamp = nowIso();
+
+    const profile: DealerProfile = {
+      userId: input.userId,
+      businessName: input.businessName,
+      cacNumber: input.cacNumber ?? null,
+      address: input.address ?? null,
+      verified: input.verified ?? existing?.verified ?? false,
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.dealerProfiles.set(input.userId, profile);
+    return profile;
+  }
+
+  async deleteDealerProfile(userId: string): Promise<void> {
+    this.dealerProfiles.delete(userId);
   }
 
   async createOtp(input: {

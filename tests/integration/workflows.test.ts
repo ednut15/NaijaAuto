@@ -238,4 +238,27 @@ describe("MVP workflows", () => {
       }),
     ).rejects.toThrow("Too many OTP attempts");
   });
+
+  it("persists seller onboarding profile and dealer details", async () => {
+    const { service } = buildService();
+
+    const initial = await service.getSellerOnboarding(seller);
+    expect(initial.isComplete).toBe(false);
+
+    const saved = await service.upsertSellerOnboarding(seller, {
+      sellerType: "dealer",
+      fullName: "Adewale Motors",
+      state: "Lagos",
+      city: "Ikeja",
+      bio: "Trusted dealership with inspected inventory.",
+      businessName: "Adewale Motors Ltd",
+      cacNumber: "RC1234567",
+      address: "12 Allen Avenue, Ikeja",
+    });
+
+    expect(saved.isComplete).toBe(true);
+    expect(saved.user.sellerType).toBe("dealer");
+    expect(saved.sellerProfile?.fullName).toBe("Adewale Motors");
+    expect(saved.dealerProfile?.businessName).toBe("Adewale Motors Ltd");
+  });
 });

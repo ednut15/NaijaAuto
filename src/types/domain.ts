@@ -60,6 +60,26 @@ export interface AppUser {
   updatedAt: string;
 }
 
+export interface SellerProfile {
+  userId: string;
+  fullName: string;
+  state: string | null;
+  city: string | null;
+  bio: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealerProfile {
+  userId: string;
+  businessName: string;
+  cacNumber: string | null;
+  address: string | null;
+  verified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ModerationReview {
   id: string;
   listingId: string;
