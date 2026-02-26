@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { enforceRateLimit } from "@/lib/rate-limit";
 import { handleApiError, jsonOk, requestIp } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { marketplaceService } from "@/server/services/container";
 
 export async function POST(
@@ -12,11 +12,11 @@ export async function POST(
   },
 ) {
   try {
-    const user = requireUser(request, ["seller"]);
+    const user = await requireUser(request, ["seller"]);
     const { identifier } = await context.params;
 
     enforceRateLimit(`submit-listing:${user.id}:${requestIp(request)}`, 20, 60 * 60 * 1000);
-    const listing = marketplaceService.submitListing(user, identifier);
+    const listing = await marketplaceService.submitListing(user, identifier);
 
     return jsonOk({ listing });
   } catch (error) {

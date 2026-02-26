@@ -63,12 +63,12 @@ const moderator: RequestUser = {
 };
 
 describe("MVP workflows", () => {
-  it("supports create -> submit -> approve -> searchable lifecycle", () => {
+  it("supports create -> submit -> approve -> searchable lifecycle", async () => {
     const { repo, service } = buildService();
-    repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
-    repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
 
-    const listing = service.createListing(seller, {
+    const listing = await service.createListing(seller, {
       title: "2021 Toyota Corolla LE",
       description: "Dealer vehicle with complete documents and solid maintenance history.",
       priceNgn: 16000000,
@@ -82,31 +82,31 @@ describe("MVP workflows", () => {
       vin: "JTDBR32E530056781",
       state: "Lagos",
       city: "Ikeja",
-      lat: 6.60,
+      lat: 6.6,
       lng: 3.35,
       photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/wf-${idx}/900/600`),
       contactPhone: "+2348091112233",
       contactWhatsapp: "+2348091112233",
     });
 
-    const pending = service.submitListing(seller, listing.id);
+    const pending = await service.submitListing(seller, listing.id);
     expect(pending.status).toBe("pending_review");
 
-    const approved = service.approveListing(moderator, listing.id, { reason: "Clean listing" });
+    const approved = await service.approveListing(moderator, listing.id, { reason: "Clean listing" });
     expect(approved.status).toBe("approved");
 
-    const search = service.searchListings({ query: "Corolla", page: 1, pageSize: 10 });
+    const search = await service.searchListings({ query: "Corolla", page: 1, pageSize: 10 });
     expect(search.total).toBe(1);
     expect(search.items[0].id).toBe(listing.id);
   });
 
-  it("supports favorites add/remove", () => {
+  it("supports favorites add/remove", async () => {
     const { repo, service } = buildService();
-    repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
-    repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: true });
-    repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+    await repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: true });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
 
-    const listing = service.createListing(seller, {
+    const listing = await service.createListing(seller, {
       title: "2019 Honda Accord",
       description: "Approved vehicle with verified papers and inspection report available.",
       priceNgn: 17000000,
@@ -121,28 +121,34 @@ describe("MVP workflows", () => {
       state: "FCT",
       city: "Abuja",
       lat: 9.07,
-      lng: 7.40,
+      lng: 7.4,
       photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/fav-${idx}/900/600`),
       contactPhone: "+2347010042200",
       contactWhatsapp: "+2347010042200",
     });
 
-    service.submitListing(seller, listing.id);
-    service.approveListing(moderator, listing.id, { reason: "Approved" });
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Approved" });
 
-    const added = service.addFavorite(buyer, listing.id);
+    const added = await service.addFavorite(buyer, listing.id);
     expect(added.saved).toBe(true);
 
-    const removed = service.removeFavorite(buyer, listing.id);
+    const removed = await service.removeFavorite(buyer, listing.id);
     expect(removed.removed).toBe(true);
   });
 
   it("activates featured listing after webhook", async () => {
     const { repo, service } = buildService();
-    repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true, email: seller.email });
-    repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+    await repo.upsertUser({
+      id: seller.id,
+      role: seller.role,
+      sellerType: "dealer",
+      phoneVerified: true,
+      email: seller.email,
+    });
+    await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
 
-    const listing = service.createListing(seller, {
+    const listing = await service.createListing(seller, {
       title: "2022 Ford Ranger",
       description: "Pickup in excellent condition with complete dealer service records.",
       priceNgn: 35500000,
@@ -163,8 +169,8 @@ describe("MVP workflows", () => {
       contactWhatsapp: "+2348127804500",
     });
 
-    service.submitListing(seller, listing.id);
-    service.approveListing(moderator, listing.id, { reason: "Approved" });
+    await service.submitListing(seller, listing.id);
+    await service.approveListing(moderator, listing.id, { reason: "Approved" });
 
     const checkout = await service.createFeaturedCheckout(seller, {
       listingId: listing.id,
@@ -184,14 +190,14 @@ describe("MVP workflows", () => {
       "valid-signature",
     );
 
-    const refreshed = repo.getListingById(listing.id);
+    const refreshed = await repo.getListingById(listing.id);
     expect(refreshed?.isFeatured).toBe(true);
     expect(refreshed?.featuredUntil).toBeTruthy();
   });
 
   it("supports OTP send/verify and enforces max retries", async () => {
     const { repo, service } = buildService();
-    repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: false });
+    await repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: false });
 
     const sendResult = await service.sendPhoneOtp(buyer, {
       phone: "+2348011234567",
@@ -199,14 +205,14 @@ describe("MVP workflows", () => {
 
     expect(sendResult.debugCode).toHaveLength(6);
 
-    expect(() =>
+    await expect(
       service.verifyPhoneOtp(buyer, {
         phone: "+2348011234567",
         code: "000000",
       }),
-    ).toThrow("Invalid OTP code");
+    ).rejects.toThrow("Invalid OTP code");
 
-    const verified = service.verifyPhoneOtp(buyer, {
+    const verified = await service.verifyPhoneOtp(buyer, {
       phone: "+2348011234567",
       code: sendResult.debugCode,
     });
@@ -217,19 +223,19 @@ describe("MVP workflows", () => {
     });
 
     for (let i = 0; i < 5; i += 1) {
-      expect(() =>
+      await expect(
         service.verifyPhoneOtp(buyer, {
           phone: "+2348019998888",
           code: "123456",
         }),
-      ).toThrow("Invalid OTP code");
+      ).rejects.toThrow("Invalid OTP code");
     }
 
-    expect(() =>
+    await expect(
       service.verifyPhoneOtp(buyer, {
         phone: "+2348019998888",
         code: resend.debugCode,
       }),
-    ).toThrow("Too many OTP attempts");
+    ).rejects.toThrow("Too many OTP attempts");
   });
 });

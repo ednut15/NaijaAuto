@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ListingCard } from "@/components/listing-card";
 import { marketplaceService } from "@/server/services/container";
 
+export const dynamic = "force-dynamic";
+
 interface ListingsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -36,7 +38,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
     pageSize: getStringParam(params.pageSize),
   };
 
-  const result = marketplaceService.searchListings(filters);
+  const result = await marketplaceService.searchListings(filters);
 
   return (
     <div className="page-shell">

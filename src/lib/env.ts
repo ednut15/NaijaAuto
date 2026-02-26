@@ -15,6 +15,8 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_ACCESS_TOKEN: z.string().optional(),
+  SUPABASE_PROJECT_REF: z.string().optional(),
 });
 
 export const env = envSchema.parse({
@@ -32,6 +34,8 @@ export const env = envSchema.parse({
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN,
+  SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
 });
 
 export const isProduction = env.NODE_ENV === "production";

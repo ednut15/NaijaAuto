@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { formatNgn } from "@/lib/format";
 import { marketplaceService } from "@/server/services/container";
 
+export const dynamic = "force-dynamic";
+
 interface ListingDetailProps {
   params: Promise<{ slug: string }>;
 }
@@ -14,7 +16,7 @@ export async function generateMetadata({ params }: ListingDetailProps): Promise<
   const { slug } = await params;
 
   try {
-    const listing = marketplaceService.getPublicListing(slug);
+    const listing = await marketplaceService.getPublicListing(slug);
 
     return {
       title: listing.title,
@@ -42,7 +44,7 @@ export default async function ListingDetailPage({ params }: ListingDetailProps) 
 
   let listing;
   try {
-    listing = marketplaceService.getPublicListing(slug);
+    listing = await marketplaceService.getPublicListing(slug);
   } catch {
     notFound();
   }
