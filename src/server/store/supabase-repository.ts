@@ -816,6 +816,25 @@ export class SupabaseRepository implements Repository {
     return (data ?? []).map((row) => mapListing(row as ListingRow));
   }
 
+  async listModerationReviewsSince(sinceIso: string): Promise<ModerationReview[]> {
+    const { data, error } = await this.client
+      .from("moderation_reviews")
+      .select("id, listing_id, moderator_id, action, reason, created_at")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: true });
+
+    ensureNoError(error, "Failed to list moderation reviews");
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      listingId: row.listing_id,
+      moderatorId: row.moderator_id,
+      action: row.action,
+      reason: row.reason ?? undefined,
+      createdAt: row.created_at,
+    }));
+  }
+
   async addFavorite(input: Favorite): Promise<Favorite> {
     const payload = {
       user_id: input.userId,
