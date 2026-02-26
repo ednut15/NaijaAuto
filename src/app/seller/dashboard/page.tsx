@@ -5,6 +5,7 @@ import { requireServerUser } from "@/lib/auth";
 import { marketplaceService } from "@/server/services/container";
 import { saveSellerOnboardingAction } from "@/app/seller/dashboard/actions";
 import { SellerListingComposer } from "@/app/seller/dashboard/seller-listing-composer";
+import { SellerListingsManager } from "@/app/seller/dashboard/seller-listings-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -246,6 +247,8 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
           <div className="empty-state">You do not have any listing yet.</div>
         )}
       </section>
+
+      <SellerListingsManager initialListings={dashboard.listings} />
 
       <section className="section">
         <h3 style={{ marginBottom: 8 }}>Notifications</h3>
