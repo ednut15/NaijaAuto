@@ -10,7 +10,8 @@ export const metadata = {
 };
 
 export default async function ModeratorQueuePage() {
-  const queue = await marketplaceService.getModerationQueue();
+  const dashboard = await marketplaceService.getModerationSlaDashboard();
+  const { queue, metrics, throughputByDay } = dashboard;
 
   return (
     <div className="page-shell">
@@ -23,7 +24,79 @@ export default async function ModeratorQueuePage() {
       <section className="section-head section">
         <div>
           <h2>Moderation Queue</h2>
-          <p>{queue.length} listings currently waiting review.</p>
+          <p>{metrics.totalPending} listings currently waiting review.</p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 10,
+          }}
+        >
+          <div className="filter-panel">
+            <strong>{metrics.breachedOver120Count}</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>Breached over 120min</p>
+          </div>
+          <div className="filter-panel">
+            <strong>{metrics.highRiskCount}</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>High risk queue items</p>
+          </div>
+          <div className="filter-panel">
+            <strong>{metrics.averageAgeMinutes} min</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>Average queue age</p>
+          </div>
+          <div className="filter-panel">
+            <strong>{metrics.oldestAgeMinutes} min</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>Oldest pending age</p>
+          </div>
+          <div className="filter-panel">
+            <strong>{metrics.processedLast24h}</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>Processed in 24h</p>
+          </div>
+          <div className="filter-panel">
+            <strong>{metrics.processedLast7d}</strong>
+            <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>Processed in 7d</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="filter-panel">
+          <h3 style={{ marginTop: 0 }}>Queue Age Distribution</h3>
+          <p style={{ marginTop: 6, color: "var(--muted)" }}>
+            &lt;60m: {metrics.queueAgeDistribution.under60} • 60-119m:{" "}
+            {metrics.queueAgeDistribution.between60And119} • 120-179m:{" "}
+            {metrics.queueAgeDistribution.between120And179} • 180m+: {metrics.queueAgeDistribution.over180}
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="filter-panel">
+          <h3 style={{ marginTop: 0 }}>Throughput Trend (Last 7 Days)</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid var(--line)" }}>
+                <th style={{ paddingBottom: 8 }}>Date</th>
+                <th style={{ paddingBottom: 8 }}>Approved</th>
+                <th style={{ paddingBottom: 8 }}>Rejected</th>
+                <th style={{ paddingBottom: 8 }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {throughputByDay.map((point) => (
+                <tr key={point.date} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "8px 0" }}>{point.date}</td>
+                  <td style={{ padding: "8px 0" }}>{point.approved}</td>
+                  <td style={{ padding: "8px 0" }}>{point.rejected}</td>
+                  <td style={{ padding: "8px 0" }}>{point.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 

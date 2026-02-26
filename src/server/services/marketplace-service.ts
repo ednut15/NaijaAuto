@@ -43,6 +43,43 @@ interface SellerOnboardingState {
   missingFields: string[];
 }
 
+interface ModerationQueueItem {
+  listing: Listing;
+  ageMinutes: number;
+  slaRisk: "high" | "medium" | "low";
+}
+
+interface ModerationSlaMetrics {
+  totalPending: number;
+  highRiskCount: number;
+  mediumRiskCount: number;
+  lowRiskCount: number;
+  breachedOver120Count: number;
+  averageAgeMinutes: number;
+  oldestAgeMinutes: number;
+  processedLast24h: number;
+  processedLast7d: number;
+  queueAgeDistribution: {
+    under60: number;
+    between60And119: number;
+    between120And179: number;
+    over180: number;
+  };
+}
+
+interface ModerationThroughputPoint {
+  date: string;
+  approved: number;
+  rejected: number;
+  total: number;
+}
+
+interface ModerationSlaDashboard {
+  queue: ModerationQueueItem[];
+  metrics: ModerationSlaMetrics;
+  throughputByDay: ModerationThroughputPoint[];
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -819,27 +856,81 @@ export class MarketplaceService {
   }
 
   async getModerationQueue(): Promise<
-    Array<{
-      listing: Listing;
-      ageMinutes: number;
-      slaRisk: "high" | "medium" | "low";
-    }>
+    ModerationQueueItem[]
   > {
     const pending = await this.repo.getModerationQueue();
 
-    return pending.map((listing) => {
-      const ageMinutes = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(listing.createdAt).getTime()) / 60000),
-      );
-      const slaRisk = ageMinutes >= 90 ? "high" : ageMinutes >= 60 ? "medium" : "low";
+    return this.toModerationQueueItems(pending);
+  }
 
-      return {
-        listing,
-        ageMinutes,
-        slaRisk,
-      };
-    });
+  async getModerationSlaDashboard(): Promise<ModerationSlaDashboard> {
+    const now = Date.now();
+    const queue = await this.getModerationQueue();
+
+    const ages = queue.map((item) => item.ageMinutes);
+    const totalPending = queue.length;
+    const highRiskCount = queue.filter((item) => item.slaRisk === "high").length;
+    const mediumRiskCount = queue.filter((item) => item.slaRisk === "medium").length;
+    const lowRiskCount = queue.filter((item) => item.slaRisk === "low").length;
+    const breachedOver120Count = queue.filter((item) => item.ageMinutes >= 120).length;
+    const oldestAgeMinutes = ages.length ? Math.max(...ages) : 0;
+    const averageAgeMinutes = ages.length ? Math.round(ages.reduce((sum, value) => sum + value, 0) / ages.length) : 0;
+
+    const queueAgeDistribution = {
+      under60: queue.filter((item) => item.ageMinutes < 60).length,
+      between60And119: queue.filter((item) => item.ageMinutes >= 60 && item.ageMinutes < 120).length,
+      between120And179: queue.filter((item) => item.ageMinutes >= 120 && item.ageMinutes < 180).length,
+      over180: queue.filter((item) => item.ageMinutes >= 180).length,
+    };
+
+    const sevenDaysAgoIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const reviews = await this.repo.listModerationReviewsSince(sevenDaysAgoIso);
+    const processedLast24h = reviews.filter(
+      (review) => new Date(review.createdAt).getTime() >= now - 24 * 60 * 60 * 1000,
+    ).length;
+
+    const dayKeys = this.getRecentDayKeys(now, 7);
+    const throughputMap = new Map<string, ModerationThroughputPoint>();
+    for (const key of dayKeys) {
+      throughputMap.set(key, {
+        date: key,
+        approved: 0,
+        rejected: 0,
+        total: 0,
+      });
+    }
+
+    for (const review of reviews) {
+      const key = new Date(review.createdAt).toISOString().slice(0, 10);
+      const bucket = throughputMap.get(key);
+      if (!bucket) {
+        continue;
+      }
+
+      if (review.action === "approve") {
+        bucket.approved += 1;
+      } else {
+        bucket.rejected += 1;
+      }
+      bucket.total += 1;
+    }
+
+    return {
+      queue,
+      metrics: {
+        totalPending,
+        highRiskCount,
+        mediumRiskCount,
+        lowRiskCount,
+        breachedOver120Count,
+        averageAgeMinutes,
+        oldestAgeMinutes,
+        processedLast24h,
+        processedLast7d: reviews.length,
+        queueAgeDistribution,
+      },
+      throughputByDay: dayKeys.map((key) => throughputMap.get(key)!),
+    };
   }
 
   async getSellerOnboarding(user: RequestUser): Promise<SellerOnboardingState> {
@@ -1048,5 +1139,32 @@ export class MarketplaceService {
       isComplete: missingFields.length === 0,
       missingFields,
     };
+  }
+
+  private toModerationQueueItems(pending: Listing[]): ModerationQueueItem[] {
+    return pending.map((listing) => {
+      const ageMinutes = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(listing.createdAt).getTime()) / 60000),
+      );
+      const slaRisk = ageMinutes >= 90 ? "high" : ageMinutes >= 60 ? "medium" : "low";
+
+      return {
+        listing,
+        ageMinutes,
+        slaRisk,
+      };
+    });
+  }
+
+  private getRecentDayKeys(nowMs: number, days: number): string[] {
+    const keys: string[] = [];
+
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+      const key = new Date(nowMs - offset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      keys.push(key);
+    }
+
+    return keys;
   }
 }

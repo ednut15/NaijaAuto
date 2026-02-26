@@ -415,6 +415,12 @@ export class InMemoryRepository implements Repository {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
+  async listModerationReviewsSince(sinceIso: string): Promise<ModerationReview[]> {
+    return this.reviews
+      .filter((review) => review.createdAt >= sinceIso)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
   async addFavorite(input: Favorite): Promise<Favorite> {
     const exists = this.favorites.some(
       (item) => item.userId === input.userId && item.listingId === input.listingId,

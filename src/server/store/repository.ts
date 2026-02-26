@@ -87,6 +87,7 @@ export interface Repository {
 
   addModerationReview(input: Omit<ModerationReview, "createdAt">): Promise<ModerationReview>;
   getModerationQueue(): Promise<Listing[]>;
+  listModerationReviewsSince(sinceIso: string): Promise<ModerationReview[]>;
 
   addFavorite(input: Favorite): Promise<Favorite>;
   removeFavorite(userId: string, listingId: string): Promise<boolean>;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { RequestUser } from "@/lib/auth";
 import { MarketplaceService } from "@/server/services/marketplace-service";
@@ -339,5 +339,159 @@ describe("MVP workflows", () => {
 
     const resubmitted = await service.submitListing(seller, listing.id);
     expect(resubmitted.status).toBe("pending_review");
+  });
+
+  it("computes moderation SLA metrics with queue distribution and throughput trend", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const { repo, service } = buildService();
+      await repo.upsertUser({ id: seller.id, role: seller.role, sellerType: "dealer", phoneVerified: true });
+      await repo.upsertUser({ id: moderator.id, role: moderator.role, phoneVerified: true });
+      await service.upsertSellerOnboarding(seller, {
+        sellerType: "dealer",
+        fullName: "Adewale Motors",
+        state: "Lagos",
+        city: "Ikeja",
+        businessName: "Adewale Motors Ltd",
+      });
+
+      async function createPendingAt(input: {
+        dateIso: string;
+        vin: string;
+        title: string;
+        seed: string;
+      }): Promise<void> {
+        vi.setSystemTime(new Date(input.dateIso));
+        const listing = await service.createListing(seller, {
+          title: input.title,
+          description: "Moderation queue item with complete vehicle documentation and valid media set.",
+          priceNgn: 12000000,
+          year: 2020,
+          make: "Toyota",
+          model: "Corolla",
+          bodyType: "car",
+          mileageKm: 65000,
+          transmission: "automatic",
+          fuelType: "petrol",
+          vin: input.vin,
+          state: "Lagos",
+          city: "Ikeja",
+          lat: 6.6018,
+          lng: 3.3515,
+          photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/${input.seed}-${idx}/900/600`),
+          contactPhone: "+2348000000000",
+          contactWhatsapp: "+2348000000000",
+        });
+        await service.submitListing(seller, listing.id);
+      }
+
+      async function createReviewedAt(input: {
+        dateIso: string;
+        vin: string;
+        title: string;
+        seed: string;
+        action: "approve" | "reject";
+      }): Promise<void> {
+        vi.setSystemTime(new Date(input.dateIso));
+        const listing = await service.createListing(seller, {
+          title: input.title,
+          description: "Moderation reviewed item with compliant details and complete listing information.",
+          priceNgn: 14000000,
+          year: 2021,
+          make: "Honda",
+          model: "Accord",
+          bodyType: "car",
+          mileageKm: 54000,
+          transmission: "automatic",
+          fuelType: "petrol",
+          vin: input.vin,
+          state: "FCT",
+          city: "Abuja",
+          lat: 9.0765,
+          lng: 7.3986,
+          photos: Array.from({ length: 15 }, (_, idx) => `https://picsum.photos/seed/${input.seed}-${idx}/900/600`),
+          contactPhone: "+2348111111111",
+          contactWhatsapp: "+2348111111111",
+        });
+        await service.submitListing(seller, listing.id);
+        if (input.action === "approve") {
+          await service.approveListing(moderator, listing.id, { reason: "Approved for SLA metrics test." });
+        } else {
+          await service.rejectListing(moderator, listing.id, { reason: "Rejected for SLA metrics test." });
+        }
+      }
+
+      await createPendingAt({
+        dateIso: "2026-01-08T08:00:00.000Z",
+        vin: "1HGCM82633A100001",
+        title: "Pending Listing Old",
+        seed: "sla-p1",
+      });
+      await createPendingAt({
+        dateIso: "2026-01-08T10:45:00.000Z",
+        vin: "1HGCM82633A100002",
+        title: "Pending Listing Medium",
+        seed: "sla-p2",
+      });
+      await createPendingAt({
+        dateIso: "2026-01-08T11:40:00.000Z",
+        vin: "1HGCM82633A100003",
+        title: "Pending Listing Fresh",
+        seed: "sla-p3",
+      });
+
+      await createReviewedAt({
+        dateIso: "2026-01-08T11:10:00.000Z",
+        vin: "1HGCM82633A100004",
+        title: "Reviewed Today",
+        seed: "sla-r1",
+        action: "approve",
+      });
+      await createReviewedAt({
+        dateIso: "2026-01-07T09:00:00.000Z",
+        vin: "1HGCM82633A100005",
+        title: "Reviewed Yesterday",
+        seed: "sla-r2",
+        action: "reject",
+      });
+      await createReviewedAt({
+        dateIso: "2026-01-05T14:00:00.000Z",
+        vin: "1HGCM82633A100006",
+        title: "Reviewed Earlier Week",
+        seed: "sla-r3",
+        action: "approve",
+      });
+
+      vi.setSystemTime(new Date("2026-01-08T12:00:00.000Z"));
+      const dashboard = await service.getModerationSlaDashboard();
+
+      expect(dashboard.metrics.totalPending).toBe(3);
+      expect(dashboard.metrics.highRiskCount).toBe(1);
+      expect(dashboard.metrics.mediumRiskCount).toBe(1);
+      expect(dashboard.metrics.lowRiskCount).toBe(1);
+      expect(dashboard.metrics.breachedOver120Count).toBe(1);
+      expect(dashboard.metrics.oldestAgeMinutes).toBe(240);
+      expect(dashboard.metrics.averageAgeMinutes).toBe(112);
+      expect(dashboard.metrics.processedLast24h).toBe(1);
+      expect(dashboard.metrics.processedLast7d).toBe(3);
+      expect(dashboard.metrics.queueAgeDistribution).toEqual({
+        under60: 1,
+        between60And119: 1,
+        between120And179: 0,
+        over180: 1,
+      });
+
+      expect(dashboard.throughputByDay).toHaveLength(7);
+      const day8 = dashboard.throughputByDay.find((point) => point.date === "2026-01-08");
+      const day7 = dashboard.throughputByDay.find((point) => point.date === "2026-01-07");
+      const day5 = dashboard.throughputByDay.find((point) => point.date === "2026-01-05");
+
+      expect(day8).toMatchObject({ approved: 1, rejected: 0, total: 1 });
+      expect(day7).toMatchObject({ approved: 0, rejected: 1, total: 1 });
+      expect(day5).toMatchObject({ approved: 1, rejected: 0, total: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
