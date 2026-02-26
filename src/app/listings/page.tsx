@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FavoriteToggleButton } from "@/components/favorite-toggle-button";
 import { ListingCard } from "@/components/listing-card";
 import { getServerUser } from "@/lib/auth";
+import { canViewModerationQueue, canViewSellerDashboard } from "@/lib/authorization";
 import { marketplaceService } from "@/server/services/container";
 
 export const dynamic = "force-dynamic";
@@ -60,9 +61,16 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           <Link className="nav-link" href="/favorites">
             Favorites
           </Link>
-          <Link className="nav-link" href="/seller/dashboard">
-            Seller Dashboard
-          </Link>
+          {canViewSellerDashboard(user) ? (
+            <Link className="nav-link" href="/seller/dashboard">
+              Seller Dashboard
+            </Link>
+          ) : null}
+          {canViewModerationQueue(user) ? (
+            <Link className="nav-link" href="/moderator/queue">
+              Moderation Queue
+            </Link>
+          ) : null}
           {user ? (
             <Link className="nav-link" href="/sign-out">
               Sign Out
