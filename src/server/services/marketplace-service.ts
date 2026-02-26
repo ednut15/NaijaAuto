@@ -17,6 +17,7 @@ import { sellerOnboardingSchema } from "@/lib/validation/seller";
 import type {
   ContactChannel,
   DealerProfile,
+  FeaturedPackage,
   FeaturedPackageAdmin,
   Listing,
   SearchListingsInput,
@@ -648,6 +649,14 @@ export class MarketplaceService {
       reference: initialized.reference,
       amountNgn: featurePackage.amountNgn,
     };
+  }
+
+  async listFeaturedPackagesForSeller(user: RequestUser): Promise<FeaturedPackage[]> {
+    assertRole(user, ["seller"]);
+    await this.upsertActor(user);
+
+    const packages = await this.repo.listFeaturedPackages();
+    return [...packages].sort((a, b) => a.amountNgn - b.amountNgn);
   }
 
   async listFeaturedPackagesForAdmin(user: RequestUser): Promise<FeaturedPackageAdmin[]> {

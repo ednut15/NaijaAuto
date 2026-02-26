@@ -63,9 +63,10 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
     );
   }
 
-  const [dashboard, onboarding] = await Promise.all([
+  const [dashboard, onboarding, featuredPackages] = await Promise.all([
     marketplaceService.getSellerDashboard(user),
     marketplaceService.getSellerOnboarding(user),
+    marketplaceService.listFeaturedPackagesForSeller(user),
   ]);
   const selectedSellerType = onboarding.user.sellerType ?? "private";
 
@@ -248,7 +249,7 @@ export default async function SellerDashboardPage({ searchParams }: SellerDashbo
         )}
       </section>
 
-      <SellerListingsManager initialListings={dashboard.listings} />
+      <SellerListingsManager initialListings={dashboard.listings} featuredPackages={featuredPackages} />
 
       <section className="section">
         <h3 style={{ marginBottom: 8 }}>Notifications</h3>

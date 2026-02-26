@@ -361,6 +361,53 @@ describe("MVP workflows", () => {
     ).rejects.toThrow("Featured package not found.");
   });
 
+  it("lists only active featured packages for sellers in ascending price order", async () => {
+    const { repo, service } = buildService();
+    await repo.upsertUser({
+      id: seller.id,
+      role: seller.role,
+      sellerType: "dealer",
+      phoneVerified: true,
+      email: seller.email,
+    });
+    await repo.upsertUser({
+      id: superAdmin.id,
+      role: superAdmin.role,
+      phoneVerified: true,
+      email: superAdmin.email,
+    });
+
+    const initialPackages = await service.listFeaturedPackagesForSeller(seller);
+    expect(initialPackages.map((item) => item.code)).toEqual([
+      "feature_7_days",
+      "feature_14_days",
+      "feature_30_days",
+    ]);
+
+    await service.updateFeaturedPackageForAdmin(superAdmin, "feature_30_days", {
+      amountNgn: 22000,
+      durationDays: 30,
+    });
+    await service.updateFeaturedPackageForAdmin(superAdmin, "feature_7_days", {
+      amountNgn: 52000,
+    });
+    await service.updateFeaturedPackageForAdmin(superAdmin, "feature_14_days", {
+      isActive: false,
+    });
+
+    const availablePackages = await service.listFeaturedPackagesForSeller(seller);
+    expect(availablePackages.map((item) => item.code)).toEqual(["feature_30_days", "feature_7_days"]);
+    expect(availablePackages.map((item) => item.amountNgn)).toEqual([22000, 52000]);
+  });
+
+  it("rejects non-seller role when listing featured packages for checkout", async () => {
+    const { service } = buildService();
+
+    await expect(service.listFeaturedPackagesForSeller(buyer)).rejects.toThrow(
+      "You do not have permission for this action.",
+    );
+  });
+
   it("supports OTP send/verify and enforces max retries", async () => {
     const { repo, service } = buildService();
     await repo.upsertUser({ id: buyer.id, role: buyer.role, phoneVerified: false });

@@ -2,13 +2,20 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-import type { Listing } from "@/types/domain";
+import type { FeaturedPackage, Listing } from "@/types/domain";
 
 const MIN_SUBMIT_PHOTOS = 15;
 const MAX_PHOTOS = 30;
 
 interface ListingResponse {
   listing: Listing;
+}
+
+interface FeaturedCheckoutResponse {
+  checkoutUrl: string;
+  accessCode: string;
+  reference: string;
+  amountNgn: number;
 }
 
 function getErrorMessage(payload: unknown, fallback: string): string {
@@ -42,6 +49,7 @@ function statusTone(status: Listing["status"]): string {
 
 interface SellerListingsManagerProps {
   initialListings: Listing[];
+  featuredPackages: FeaturedPackage[];
 }
 
 interface ListingEditorProps {
@@ -54,6 +62,16 @@ interface UploadResponse {
   photo: {
     url: string;
   };
+}
+
+const NGN_FORMATTER = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  maximumFractionDigits: 0,
+});
+
+function formatNgn(amount: number): string {
+  return NGN_FORMATTER.format(amount);
 }
 
 function ListingEditor({ listing, onSaved, onCancel }: ListingEditorProps) {
@@ -461,12 +479,26 @@ function ListingEditor({ listing, onSaved, onCancel }: ListingEditorProps) {
   );
 }
 
-export function SellerListingsManager({ initialListings }: SellerListingsManagerProps) {
+export function SellerListingsManager({ initialListings, featuredPackages }: SellerListingsManagerProps) {
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [submittingListingId, setSubmittingListingId] = useState<string | null>(null);
+  const [featuringListingId, setFeaturingListingId] = useState<string | null>(null);
   const [errorByListing, setErrorByListing] = useState<Record<string, string>>({});
   const [successByListing, setSuccessByListing] = useState<Record<string, string>>({});
+  const [selectedPackageByListing, setSelectedPackageByListing] = useState<Record<string, string>>(() => {
+    const defaults: Record<string, string> = {};
+    const firstCode = featuredPackages[0]?.code;
+    if (!firstCode) {
+      return defaults;
+    }
+
+    for (const listing of initialListings) {
+      defaults[listing.id] = firstCode;
+    }
+
+    return defaults;
+  });
 
   if (!listings.length) {
     return (
@@ -520,6 +552,63 @@ export function SellerListingsManager({ initialListings }: SellerListingsManager
     }
   }
 
+  async function startFeaturedCheckout(listingId: string): Promise<void> {
+    const listing = listings.find((item) => item.id === listingId);
+    if (!listing || listing.status !== "approved") {
+      return;
+    }
+
+    const packageCode = selectedPackageByListing[listingId] ?? featuredPackages[0]?.code;
+    if (!packageCode) {
+      setErrorByListing((current) => ({
+        ...current,
+        [listingId]: "No featured package is currently available.",
+      }));
+      return;
+    }
+
+    setFeaturingListingId(listingId);
+    setErrorByListing((current) => ({ ...current, [listingId]: "" }));
+    setSuccessByListing((current) => ({ ...current, [listingId]: "" }));
+
+    try {
+      const response = await fetch("/api/featured/checkout", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          listingId,
+          packageCode,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as
+        | FeaturedCheckoutResponse
+        | { error?: string };
+
+      if (!response.ok || !("checkoutUrl" in payload)) {
+        throw new Error(getErrorMessage(payload, "Unable to initialize featured checkout."));
+      }
+
+      setSuccessByListing((current) => ({
+        ...current,
+        [listingId]: "Redirecting to secure payment checkout...",
+      }));
+      window.location.assign(payload.checkoutUrl);
+    } catch (checkoutError) {
+      setErrorByListing((current) => ({
+        ...current,
+        [listingId]:
+          checkoutError instanceof Error
+            ? checkoutError.message
+            : "Unable to start featured checkout.",
+      }));
+    } finally {
+      setFeaturingListingId(null);
+    }
+  }
+
   function handleSavedListing(updated: Listing): void {
     setListings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     setSuccessByListing((current) => ({
@@ -533,8 +622,8 @@ export function SellerListingsManager({ initialListings }: SellerListingsManager
     <section className="section">
       <div className="section-head">
         <div>
-          <h3>Manage Drafts and Rejected Listings</h3>
-          <p>Edit details, update photos, and resubmit directly from here.</p>
+          <h3>Manage Listings and Featured Boosts</h3>
+          <p>Edit drafts, resubmit rejected listings, and boost approved listings.</p>
         </div>
       </div>
 
@@ -543,7 +632,10 @@ export function SellerListingsManager({ initialListings }: SellerListingsManager
           const editable = canEditListing(listing);
           const isEditing = editingListingId === listing.id;
           const isSubmitting = submittingListingId === listing.id;
+          const isFeaturing = featuringListingId === listing.id;
           const photosShort = listing.photos.length < MIN_SUBMIT_PHOTOS;
+          const canFeature = listing.status === "approved";
+          const selectedPackageCode = selectedPackageByListing[listing.id] ?? featuredPackages[0]?.code ?? "";
 
           return (
             <div key={listing.id} className="filter-panel" style={{ marginBottom: 12 }}>
@@ -582,6 +674,70 @@ export function SellerListingsManager({ initialListings }: SellerListingsManager
                   ) : null}
                 </div>
               </div>
+
+              {canFeature ? (
+                <div className="filter-panel" style={{ marginBottom: 8 }}>
+                  {listing.isFeatured ? (
+                    <p style={{ margin: "0 0 8px", color: "var(--teal-700)" }}>
+                      Featured until:{" "}
+                      <strong>
+                        {listing.featuredUntil ? new Date(listing.featuredUntil).toLocaleString() : "active"}
+                      </strong>
+                    </p>
+                  ) : (
+                    <p style={{ margin: "0 0 8px", color: "var(--muted)" }}>
+                      This approved listing can be boosted for higher placement.
+                    </p>
+                  )}
+
+                  {featuredPackages.length ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 10,
+                        gridTemplateColumns: "minmax(240px, 1fr) auto",
+                        alignItems: "end",
+                      }}
+                    >
+                      <div>
+                        <label className="label" htmlFor={`feature-package-${listing.id}`}>
+                          Featured Package
+                        </label>
+                        <select
+                          className="select"
+                          id={`feature-package-${listing.id}`}
+                          value={selectedPackageCode}
+                          onChange={(event) =>
+                            setSelectedPackageByListing((current) => ({
+                              ...current,
+                              [listing.id]: event.target.value,
+                            }))
+                          }
+                        >
+                          {featuredPackages.map((pkg) => (
+                            <option key={pkg.code} value={pkg.code}>
+                              {pkg.name} ({pkg.durationDays} days) - {formatNgn(pkg.amountNgn)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        className="button"
+                        type="button"
+                        onClick={() => void startFeaturedCheckout(listing.id)}
+                        disabled={isFeaturing || !selectedPackageCode}
+                      >
+                        {isFeaturing ? "Preparing..." : "Boost Listing"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, color: "#8a2d2d" }}>
+                      Featured packages are not available right now.
+                    </p>
+                  )}
+                </div>
+              ) : null}
 
               {photosShort && editable ? (
                 <p style={{ margin: "0 0 8px", color: "#8a2d2d" }}>
